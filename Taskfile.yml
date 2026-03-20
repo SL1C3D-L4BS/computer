@@ -1,0 +1,506 @@
+version: '3'
+
+vars:
+  VERSIONS_FILE: packages/config/versions.json
+  COMPOSE_INFRA: infra/docker/compose.infra.yml
+  COMPOSE_KERNEL: infra/docker/compose.kernel.yml
+  COMPOSE_API: infra/docker/compose.api.yml
+  COMPOSE_ADAPTERS: infra/docker/compose.adapters.yml
+  COMPOSE_ASSISTANT: infra/docker/compose.assistant.yml
+
+tasks:
+  # ── Bootstrap ──────────────────────────────────────────────────────────────
+  bootstrap:
+    desc: "Bootstrap the full local development stack"
+    cmds:
+      - ./bootstrap.sh
+
+  bootstrap:full:
+    desc: "Bootstrap with all optional components"
+    cmds:
+      - ./bootstrap.sh --full
+
+  # ── Dependencies ───────────────────────────────────────────────────────────
+  install:
+    desc: "Install all Node and Python dependencies"
+    cmds:
+      - pnpm install --frozen-lockfile
+      - task: install:python
+
+  install:python:
+    desc: "Install Python dependencies for all services"
+    cmds:
+      - |
+        for dir in apps/* services/*; do
+          if [ -f "$dir/pyproject.toml" ]; then
+            echo "Installing $dir"
+            uv sync --frozen --project "$dir"
+          fi
+        done
+
+  # ── Contracts ──────────────────────────────────────────────────────────────
+  contracts:generate:
+    desc: "Generate Pydantic models, TypeScript types, and SDK from schemas"
+    cmds:
+      - pnpm contracts:generate
+
+  contracts:validate:
+    desc: "Validate that generated contracts match schemas (CI contract-gate)"
+    cmds:
+      - pnpm contracts:validate
+
+  # ── Development servers ────────────────────────────────────────────────────
+  dev:infra:
+    desc: "Start infrastructure (Postgres, Redis, MQTT)"
+    cmds:
+      - docker compose -f {{.COMPOSE_INFRA}} up -d
+
+  dev:kernel:
+    desc: "Start kernel services (digital-twin, orchestrator)"
+    cmds:
+      - docker compose -f {{.COMPOSE_KERNEL}} up -d
+
+  dev:api:
+    desc: "Start API services (control-api, event-ingest)"
+    cmds:
+      - docker compose -f {{.COMPOSE_API}} up -d
+
+  dev:ops-web:
+    desc: "Start ops-web dev server"
+    dir: apps/ops-web
+    cmds:
+      - pnpm dev
+
+  dev:family-web:
+    desc: "Start family-web dev server"
+    dir: apps/family-web
+    cmds:
+      - pnpm dev
+
+  # ── Database ───────────────────────────────────────────────────────────────
+  db:migrate:
+    desc: "Run all database migrations"
+    cmds:
+      - uv run --project apps/digital-twin alembic upgrade head
+      - uv run --project apps/orchestrator alembic upgrade head
+
+  db:seed:
+    desc: "Load seed data (Spokane site)"
+    cmds:
+      - uv run --project apps/digital-twin python -m digital_twin.seed --site=spokane
+
+  db:reset:
+    desc: "Reset database (drop and recreate)"
+    cmds:
+      - docker compose -f {{.COMPOSE_INFRA}} exec -T postgres psql -U computer -c "DROP DATABASE IF EXISTS computer_dev;"
+      - docker compose -f {{.COMPOSE_INFRA}} exec -T postgres psql -U computer -c "CREATE DATABASE computer_dev;"
+      - task: db:migrate
+      - task: db:seed
+
+  # ── Testing ────────────────────────────────────────────────────────────────
+  test:
+    desc: "Run all tests"
+    cmds:
+      - task: test:python
+      - task: test:typescript
+
+  test:python:
+    desc: "Run Python tests"
+    cmds:
+      - |
+        for dir in apps/* services/*; do
+          if [ -f "$dir/pyproject.toml" ]; then
+            uv run --project "$dir" pytest tests/ -v
+          fi
+        done
+
+  test:typescript:
+    desc: "Run TypeScript tests"
+    cmds:
+      - pnpm test
+
+  test:integration:
+    desc: "Run integration tests (requires running stack)"
+    cmds:
+      - uv run --project tests/integration pytest . -v
+
+  # ── CI gates ───────────────────────────────────────────────────────────────
+  ci:contract-gate:
+    desc: "Run contract gate (CI)"
+    cmds:
+      - pnpm contracts:validate
+
+  ci:safety-gate:
+    desc: "Run safety gate — verify no MQTT publish from AI paths"
+    cmds:
+      - python scripts/ci/safety_gate.py
+
+  ci:audit-gate:
+    desc: "Run audit gate — verify command_log is written before EXECUTING"
+    cmds:
+      - uv run --project tests/integration pytest tests/integration/test_audit_gate.py -v
+
+  ci:all:
+    desc: "Run all CI gates locally (same as CI pipeline)"
+    cmds:
+      - task: ci:contract-gate
+      - task: ci:safety-gate
+      - task: test:python
+      - task: lint
+      - echo "All CI gates passed."
+
+  ci:release-gate:
+    desc: "Run all gates required for a release build"
+    cmds:
+      - task: ci:all
+      - task: test:integration
+      - echo "Release gate: PASSED"
+
+  ci:milestone-1:
+    desc: "Verify Milestone 1 DoD — typed end-to-end event flow without hardware"
+    cmds:
+      - task: test:integration
+      - echo ""
+      - echo "Milestone 1 Definition of Done:"
+      - echo "  [x] Services start and expose /health"
+      - echo "  [x] LOW risk jobs auto-approved"
+      - echo "  [x] HIGH risk jobs require operator approval"
+      - echo "  [x] F05 policy enforcement verified"
+      - echo "  [x] Asset registry returns canonical IDs"
+
+  ci:milestone-5:
+    desc: "Verify Milestone 5 DoD — first physical autonomy asset (rover)"
+    cmds:
+      - uv run --project tests/integration pytest tests/integration/test_milestone_5.py -v
+      - echo ""
+      - echo "Milestone 5 Definition of Done:"
+      - echo "  [x] rover-control service starts and exposes /health"
+      - echo "  [x] Rover missions require HIGH-risk OPERATOR approval"
+      - echo "  [x] AI cannot dispatch rover missions directly (F01+F05)"
+      - echo "  [x] E-stop transitions rover to SAFE_STOP"
+      - echo "  [x] Battery low triggers RTH job proposal"
+      - echo "  [x] All state transitions audited in mission_log"
+      - echo "  [x] Rover state visible in digital twin"
+
+  test:rover:
+    desc: "Run rover-control unit tests (state machine)"
+    cmds:
+      - uv run --project services/rover-control pytest services/rover-control/tests/ -v
+
+  sitl:rover:
+    desc: "Run rover SITL scenarios (requires services running)"
+    cmds:
+      - echo "Starting rover SITL scenario runner..."
+      - python3 robotics/simulation/rover_sitl.py --scenario waypoint_mission
+      - python3 robotics/simulation/rover_sitl.py --scenario safe_stop
+      - python3 robotics/simulation/rover_sitl.py --scenario battery_low_rth
+      - echo "SITL scenarios completed."
+
+  sitl:drone:
+    desc: "Run drone SITL scenarios (requires PX4 SITL + drone-control running)"
+    cmds:
+      - echo "Running drone SITL safety gates..."
+      - python3 robotics/simulation/drone_sitl.py --scenario ai_cannot_arm
+      - python3 robotics/simulation/drone_sitl.py --scenario supervised_waypoint
+      - python3 robotics/simulation/drone_sitl.py --scenario emergency_rtl
+      - echo "Drone SITL scenarios completed."
+
+  test:drone:
+    desc: "Run drone-control unit tests (flight state machine)"
+    cmds:
+      - uv run --project services/drone-control pytest services/drone-control/tests/ -v
+
+  backup:
+    desc: "Run system backup (requires POSTGRES_PASS env var)"
+    cmds:
+      - ./scripts/backup/backup.sh
+
+  restore:
+    desc: "Restore from backup archive (usage: task restore -- /path/to/archive.tar.gz [--dry-run])"
+    cmds:
+      - ./scripts/backup/restore.sh {{.CLI_ARGS}}
+
+  release:validate:
+    desc: "Validate release class gates (usage: task release:validate -- --version v1.0.0 --class sim-stable)"
+    cmds:
+      - python3 scripts/release/validate_release_class.py {{.CLI_ARGS}}
+
+  release:validate:sim-stable:
+    desc: "Validate current repo meets sim-stable release class"
+    cmds:
+      - python3 scripts/release/validate_release_class.py --version v0.1.0 --class sim-stable
+
+  rubric:
+    desc: "Run perfection rubric — all pass conditions across all categories"
+    cmds:
+      - python3 scripts/perfection_rubric.py
+
+  rubric:category:
+    desc: "Run rubric for one category (usage: task rubric:category -- ai_safety)"
+    cmds:
+      - python3 scripts/perfection_rubric.py --category {{.CLI_ARGS}}
+
+  rubric:json:
+    desc: "Run perfection rubric and output JSON"
+    cmds:
+      - python3 scripts/perfection_rubric.py --json
+
+  # ── Scenarios ──────────────────────────────────────────────────────────────
+  scenario:
+    desc: "Run a system scenario (usage: task scenario -- irrigation_leak_sim)"
+    cmds:
+      - ./run_scenario.sh {{.CLI_ARGS}}
+
+  # ── Linting ────────────────────────────────────────────────────────────────
+  lint:
+    desc: "Lint all code"
+    cmds:
+      - task: lint:python
+      - task: lint:typescript
+
+  lint:python:
+    desc: "Lint Python code with ruff"
+    cmds:
+      - |
+        for dir in apps/* services/*; do
+          if [ -f "$dir/pyproject.toml" ]; then
+            uv run --project "$dir" ruff check .
+          fi
+        done
+
+  lint:typescript:
+    desc: "Lint TypeScript code"
+    cmds:
+      - pnpm lint
+
+  # ── Cleanup ────────────────────────────────────────────────────────────────
+  down:
+    desc: "Stop all containers (preserves data volumes)"
+    cmds:
+      - docker compose -f {{.COMPOSE_INFRA}} down
+      - docker compose -f {{.COMPOSE_KERNEL}} down
+      - docker compose -f {{.COMPOSE_API}} down
+
+  down:clean:
+    desc: "Stop all containers and remove volumes (full reset)"
+    cmds:
+      - docker compose -f {{.COMPOSE_INFRA}} down -v
+      - docker compose -f {{.COMPOSE_KERNEL}} down -v
+      - docker compose -f {{.COMPOSE_API}} down -v
+
+  # ── Health ─────────────────────────────────────────────────────────────────
+  health:
+    desc: "Check health of all services"
+    cmds:
+      - ./scripts/health_check.sh
+
+  # ── Runtime Gate ───────────────────────────────────────────────────────────
+  runtime:check:
+    desc: "Check local runtime versions against versions.json (strict)"
+    cmds:
+      - ./scripts/check_runtime.sh
+
+  runtime:check:warn:
+    desc: "Check runtime versions and warn only (no exit 1)"
+    cmds:
+      - ./scripts/check_runtime.sh --warn
+
+  runtime:fix:
+    desc: "Print instructions to fix runtime drift"
+    cmds:
+      - |
+        echo "=== Runtime Fix Instructions ==="
+        echo ""
+        echo "Node 24 LTS:"
+        echo "  nvm install 24 && nvm use 24 && nvm alias default 24"
+        echo "  OR: volta install node@24"
+        echo "  OR: brew install node@24 && brew link node@24"
+        echo ""
+        echo "pnpm 10.x:"
+        echo "  corepack enable && corepack use pnpm@10.32.1"
+        echo "  OR: npm install -g pnpm@10.32.1"
+        echo ""
+        echo "Python 3.14:"
+        echo "  pyenv install 3.14 && pyenv global 3.14"
+        echo "  OR: brew install python@3.14"
+        echo ""
+        echo "uv:"
+        echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+        echo ""
+        echo "After installing, re-run: task runtime:check"
+
+  # ── Rubric (Structural + Operational) ─────────────────────────────────────
+  rubric:
+    desc: "Run structural rubric (artifact presence + static enforcement)"
+    cmds:
+      - python3 scripts/perfection_rubric.py
+
+  rubric:category:
+    desc: "Run one structural rubric category (e.g. task rubric:category -- ai_safety)"
+    cmds:
+      - python3 scripts/perfection_rubric.py --category {{.CLI_ARGS}}
+
+  rubric:json:
+    desc: "Structural rubric output as JSON"
+    cmds:
+      - python3 scripts/perfection_rubric.py --json
+
+  rubric:operational:
+    desc: "Run operational rubric (behavioral verification — requires services)"
+    cmds:
+      - python3 scripts/operational_rubric.py
+
+  rubric:operational:category:
+    desc: "Run one operational rubric category (e.g. task rubric:operational:category -- runtime)"
+    cmds:
+      - python3 scripts/operational_rubric.py --category {{.CLI_ARGS}}
+
+  rubric:all:
+    desc: "Run BOTH structural and operational rubrics"
+    cmds:
+      - echo "=== STRUCTURAL RUBRIC ==="
+      - python3 scripts/perfection_rubric.py
+      - echo ""
+      - echo "=== OPERATIONAL RUBRIC ==="
+      - python3 scripts/operational_rubric.py
+
+  # ── Operational Tests ──────────────────────────────────────────────────────
+  test:degraded:
+    desc: "Run degraded-mode behavioral tests (requires services + docker)"
+    cmds:
+      - uv run --project tests/integration pytest tests/integration/test_degraded_mode.py -v
+
+  test:degraded:no-fault:
+    desc: "Run degraded-mode tests that don't need fault injection (no docker pause)"
+    cmds:
+      - uv run --project tests/integration pytest tests/integration/test_degraded_mode.py -v -m "not fault_injection"
+
+  test:assistant:trust:
+    desc: "Run assistant trust tests (memory isolation, role access, no-actuation)"
+    cmds:
+      - uv run --project tests/integration pytest tests/integration/test_assistant_trust.py -v
+
+  test:assistant:memory:
+    desc: "Run assistant memory isolation tests only"
+    cmds:
+      - uv run --project tests/integration pytest tests/integration/test_assistant_trust.py -v -k "memory"
+
+  test:assistant:actuation:
+    desc: "Run ADR-002 no-actuation tests"
+    cmds:
+      - uv run --project tests/integration pytest tests/integration/test_assistant_trust.py -v -k "actuation or actuate"
+
+  test:operational:all:
+    desc: "Run all operational tests (degraded + assistant trust)"
+    cmds:
+      - uv run --project tests/integration pytest tests/integration/test_degraded_mode.py tests/integration/test_assistant_trust.py -v
+
+  # ── V4 CLI Operator Tools ─────────────────────────────────────────────────
+  cli:doctor:
+    desc: "Service health, version drift, MCP registry status"
+    cmds:
+      - python3 scripts/cli/computer.py doctor
+
+  cli:doctor:fix:
+    desc: "Service health check with auto-remediation"
+    cmds:
+      - python3 scripts/cli/computer.py doctor --fix
+
+  cli:trace:
+    desc: "Print full CRK execution chain for a trace ID"
+    cmds:
+      - python3 scripts/cli/computer.py trace {{.TRACE_ID}}
+
+  cli:explain:
+    desc: "Human-readable decision explanation for a trace"
+    cmds:
+      - python3 scripts/cli/computer.py explain {{.TRACE_ID}}
+
+  cli:replay:
+    desc: "Re-run a historical trace through current policy"
+    cmds:
+      - python3 scripts/cli/computer.py replay {{.TRACE_ID}}
+
+  cli:simulate:
+    desc: "Run assistant scenario (PASS/FAIL per step)"
+    cmds:
+      - python3 scripts/cli/computer.py simulate {{.SCENARIO}}
+
+  cli:workflow:
+    desc: "List durable workflows"
+    cmds:
+      - python3 scripts/cli/computer.py workflow list
+
+  cli:auth:
+    desc: "Dry-run auth check (set SUBJECT, ACTION, RESOURCE)"
+    cmds:
+      - python3 scripts/cli/computer.py auth {{.SUBJECT}} {{.ACTION}} {{.RESOURCE}}
+
+  cli:memory:
+    desc: "Memory scope audit"
+    cmds:
+      - python3 scripts/cli/computer.py memory
+
+  cli:brief:
+    desc: "Daily founder briefing"
+    cmds:
+      - python3 scripts/cli/computer.py founder brief
+
+  cli:founder-load:
+    desc: "Print decision_load_index"
+    cmds:
+      - python3 scripts/cli/computer.py founder load
+
+  cli:policy:
+    desc: "Policy diff vs last checkpoint"
+    cmds:
+      - python3 scripts/cli/computer.py policy
+
+  cli:trust:
+    desc: "Trust KPI report for the last 7 days"
+    cmds:
+      - python3 scripts/cli/computer.py trust --period 7d
+
+  cli:shadow:
+    desc: "Shadow mode divergence review"
+    cmds:
+      - python3 scripts/cli/computer.py shadow
+
+  cli:tools:
+    desc: "MCP tool admission audit"
+    cmds:
+      - python3 scripts/cli/computer.py tool audit
+
+  cli:drift:
+    desc: "Weekly drift digest (last 7 days)"
+    cmds:
+      - python3 scripts/cli/computer.py drift --period 7d
+
+  cli:summarize:
+    desc: "1-line decision summary for a trace"
+    cmds:
+      - python3 scripts/cli/computer.py summarize {{.TRACE_ID}}
+
+  cli:expect:
+    desc: "Interactive ExpectationDelta capture"
+    cmds:
+      - python3 scripts/cli/computer.py expect
+
+  # ── Full CI Pipeline (local) ───────────────────────────────────────────────
+  ci:full:
+    desc: "Full local CI: runtime gate + structural rubric + all tests"
+    cmds:
+      - echo "=== Step 1: Runtime Gate ==="
+      - ./scripts/check_runtime.sh
+      - echo ""
+      - echo "=== Step 2: Structural Rubric ==="
+      - python3 scripts/perfection_rubric.py
+      - echo ""
+      - echo "=== Step 3: Unit Tests ==="
+      - task: test:rover
+      - task: test:drone
+      - echo ""
+      - echo "=== Step 4: Release Validation ==="
+      - task: release:validate
+      - echo ""
+      - echo "CI: All steps passed"

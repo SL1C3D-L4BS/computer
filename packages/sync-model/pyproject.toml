@@ -1,0 +1,10 @@
+[project]
+name = "sync-model"
+version = "0.1.0"
+description = "Local-first sync contracts for family-web CRDT-compatible state"
+requires-python = ">=3.14"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

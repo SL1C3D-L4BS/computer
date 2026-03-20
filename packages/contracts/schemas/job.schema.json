@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://computer.local/schemas/job.schema.json",
+  "title": "Job",
+  "description": "Orchestrator job — the fundamental unit of physical work in Computer. Every physical operation is a job.",
+  "type": "object",
+  "required": ["job_id", "type", "requested_by", "origin", "target_asset_ids", "risk_class", "approval_mode", "state", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Stable unique identifier for this job"
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Correlation ID from the incoming request that created this job; propagated through all audit events"
+    },
+    "type": {
+      "type": "string",
+      "description": "Job type name from the registered job type registry",
+      "examples": ["IrrigationRun", "LeakIsolation", "NutrientCorrection", "GreenhouseVentCycle", "SecurityInspect", "RoverSoilSample", "DroneRecon", "ReturnToDock"]
+    },
+    "requested_by": {
+      "type": "string",
+      "description": "user_id or service_id that requested this job"
+    },
+    "origin": {
+      "type": "string",
+      "enum": ["operator", "policy", "ai_advisory", "sensor_rule", "emergency"],
+      "description": "Source of the job request. Affects approval rules."
+    },
+    "target_asset_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Canonical asset IDs (from digital-twin) of affected assets. Never vendor entity names."
+    },
+    "target_capability": {
+      "type": "string",
+      "description": "Capability tag targeted (e.g. actuator:valve:irrigation)",
+      "examples": ["actuator:valve:irrigation", "robot:rover", "actuator:relay:heater"]
+    },
+    "target_zone": {
+      "type": "string",
+      "description": "Site zone name (e.g. 'north', 'greenhouse_zone_a')"
+    },
+    "parameters": {
+      "type": "object",
+      "description": "Job-type-specific parameters",
+      "additionalProperties": true
+    },
+    "risk_class": {
+      "type": "string",
+      "enum": ["INFORMATIONAL", "LOW", "MEDIUM", "HIGH", "CRITICAL"],
+      "description": "Risk classification; determines approval requirements"
+    },
+    "approval_mode": {
+      "type": "string",
+      "enum": ["NONE", "AUTO", "AUTO_WITH_AUDIT", "OPERATOR_REQUIRED", "OPERATOR_CONFIRM_TWICE"],
+      "description": "How approval is obtained for this job"
+    },
+    "state": {
+      "type": "string",
+      "enum": ["PENDING", "VALIDATING", "APPROVED", "REJECTED", "EXECUTING", "COMPLETED", "FAILED", "ABORTED"],
+      "description": "Current state machine state"
+    },
+    "preconditions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "description"],
+        "properties": {
+          "type": { "type": "string" },
+          "description": { "type": "string" },
+          "satisfied": { "type": "boolean" },
+          "checked_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "description": "Conditions that must be satisfied before APPROVED → EXECUTING"
+    },
+    "abort_conditions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "description"],
+        "properties": {
+          "type": { "type": "string" },
+          "description": { "type": "string" },
+          "triggered": { "type": "boolean" }
+        }
+      },
+      "description": "Conditions that trigger ABORTED during EXECUTING"
+    },
+    "command_log": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/CommandLogEntry" },
+      "description": "Ordered log of all dispatches and acknowledgments for this job"
+    },
+    "telemetry_refs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "References to telemetry events associated with this job"
+    },
+    "approval_event": {
+      "type": "object",
+      "properties": {
+        "approved_by": { "type": "string" },
+        "approved_at": { "type": "string", "format": "date-time" },
+        "approval_note": { "type": "string" }
+      },
+      "description": "Logged when a human approves the job"
+    },
+    "rejection_reason": {
+      "type": "string",
+      "description": "Why the job was rejected or failed"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Seconds after EXECUTING before job transitions to FAILED if no completion"
+    }
+  },
+  "$defs": {
+    "CommandLogEntry": {
+      "type": "object",
+      "required": ["timestamp", "type", "dispatched_by"],
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "type": {
+          "type": "string",
+          "enum": ["DISPATCH", "ACK", "NACK", "RETRY", "TIMEOUT", "ABORT", "COMPLETE"]
+        },
+        "dispatched_by": { "type": "string", "description": "Service that dispatched the command" },
+        "target_service": { "type": "string" },
+        "command_topic": { "type": "string" },
+        "payload_summary": { "type": "string" },
+        "outcome": { "type": "string" }
+      }
+    }
+  }
+}

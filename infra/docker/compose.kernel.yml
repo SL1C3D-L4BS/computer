@@ -1,0 +1,45 @@
+name: computer-kernel
+
+services:
+  digital-twin:
+    build:
+      context: ../../apps/digital-twin
+      dockerfile: Dockerfile
+    container_name: computer-digital-twin
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://computer:${POSTGRES_PASSWORD:-devpassword}@localhost:5432/computer_dev
+      REDIS_URL: redis://:${REDIS_PASSWORD:-devpassword}@localhost:6379/0
+    network_mode: "host"
+    depends_on:
+      - computer-infra
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  orchestrator:
+    build:
+      context: ../../apps/orchestrator
+      dockerfile: Dockerfile
+    container_name: computer-orchestrator
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://computer:${POSTGRES_PASSWORD:-devpassword}@localhost:5432/computer_dev
+      REDIS_URL: redis://:${REDIS_PASSWORD:-devpassword}@localhost:6379/0
+      MQTT_HOST: localhost
+      MQTT_PORT: "1883"
+      DIGITAL_TWIN_URL: http://localhost:8001
+    network_mode: "host"
+    depends_on:
+      - computer-infra
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10

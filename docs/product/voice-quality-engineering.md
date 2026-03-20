@@ -1,0 +1,143 @@
+# Voice Quality Engineering
+
+**Status:** Active  
+**Version:** 1.0.0  
+**Owner:** Voice-gateway maintainer
+
+---
+
+## Overview
+
+Voice quality is not about speech recognition accuracy. It is about **behavioral contracts**: when to speak, how long, what to defer to screen, and critically — when to be silent. A system that speaks at the right moment with the right length earns trust. A system that over-speaks or interrupts incorrectly loses it fast.
+
+---
+
+## Behavioral Contracts
+
+### Turn Detection
+
+| Scenario                    | Required behavior                                              |
+| --------------------------- | -------------------------------------------------------------- |
+| Barge-in by user            | Stop speaking within 200ms; acknowledge if mid-sentence        |
+| False interruption          | Resume from last complete sentence; do not restart from top    |
+| Manual turn control enabled | Only speak when explicitly invoked; no proactive utterances    |
+| Barge-in threshold          | Configurable per mode; default 200ms; EMERGENCY: 100ms         |
+
+False interruption recovery must not cause content duplication (partial sentence + full repeat).
+
+### Spoken-Length Budget
+
+| Mode         | Max length               | Notes                                       |
+| ------------ | ------------------------ | ------------------------------------------- |
+| PERSONAL     | ≤ 2 sentences            | One answer, one context sentence max         |
+| FAMILY       | ≤ 3 sentences            | Allows slightly more for multi-person context |
+| EMERGENCY    | ≤ 1 sentence             | Clarity above all; defer detail to screen   |
+| WORK         | ≤ 4 sentences            | Longer briefings permitted in founder mode  |
+
+Exceeding budget is a `spoken_length_exceeded` violation, logged as `ObservationRecord`.
+
+### Ambiguity Confirmation Policy
+
+When `IntentConfidence < 0.65`:
+- **Required:** One-question clarification before acting
+- **Forbidden:** Acting on a best-guess interpretation without asking
+- Clarification question must be ≤ 1 sentence
+- Only one clarification question per turn (no interrogation chains)
+
+### Room-Aware Routing
+
+The `surface` field in `ExecutionContext` carries a room hint from voice-gateway. Routing rules:
+
+| Room type       | Rule                                                              |
+| --------------- | ----------------------------------------------------------------- |
+| Shared room     | Never speak private personal content; redirect to personal device |
+| Private room    | Full personal content permitted                                   |
+| Unknown/outdoor | Conservative: treat as shared room                                |
+
+---
+
+## Silence Quality (first-class metric)
+
+**Silence is a decision outcome, not an absence of behavior.** The system must actively decide when NOT to speak.
+
+| Trigger                                          | Correct behavior                                              |
+| ------------------------------------------------ | ------------------------------------------------------------- |
+| `DIGEST` attention decision                      | Do not speak; deliver to screen surface instead               |
+| `SILENT` attention decision                      | No output on any surface                                      |
+| Multi-step or visual content                     | Defer to family-web; voice says "I've sent this to your screen" |
+| Private content in shared room                   | Do not speak; offer to send to personal device                |
+| Follow-up would exceed spoken-length budget      | Complete current response; offer continuation on screen       |
+
+### Silence Quality KPI
+
+Silence quality is tracked as the **absence of violations**: cases where the system spoke when it should have been silent. Logged as `silence_violated_*` fixtures in voice evaluations.
+
+---
+
+## `spoken_regret_rate` (new V4 metric)
+
+**Definition:** Rate of user-initiated stop signals per voice interaction.
+
+Stop signals include:
+- "stop" / "stop talking" / "that's enough"
+- "not now" / "I'll deal with it later"
+- "don't say that out loud" / "that's private"
+- "that's not what I meant" / "no, I meant..."
+
+**Why it matters:** `spoken_regret_rate` is the strongest leading indicator of voice trust failure. A rising rate means the system is speaking at the wrong moments, at the wrong length, or with the wrong content. It precedes explicit user complaints and explicit trust loss.
+
+**Logged as:** `ObservationRecord` with `observation_type="spoken_regret"`, `surface="VOICE"`.
+
+**KPI threshold:** `spoken_regret_rate ≤ 0.05` (per 100 voice interactions).
+
+**Drift alarm:** If `spoken_regret_rate > 0.08` for 24h, attention-engine owner is notified. See `docs/architecture/trust-kpis-and-drift-model.md`.
+
+---
+
+## Apology and Clarification Templates
+
+Templates are deterministic strings from `packages/persona/`. They are not generated by the language model; persona changes go through the persona package, not free-form model output.
+
+| Situation                          | Template                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------ |
+| False interruption                 | "Sorry, let me finish that. {resume_from_last_sentence}"                 |
+| Ambiguity clarification            | "Just to confirm: do you mean {interpretation_a} or {interpretation_b}?" |
+| Private content in shared room     | "I've sent that to your personal device instead."                        |
+| Spoken-length limit reached        | "I've sent the details to your screen."                                  |
+| User says stop                     | "{silence}" (no verbal acknowledgment; stop immediately)                 |
+
+---
+
+## Evaluation Coverage
+
+Voice behavioral evaluations live in `packages/eval-fixtures/eval_fixtures/voice_evals.py`.
+
+Required fixtures (≥ 13):
+
+| Fixture name                      | Tests                                               |
+| --------------------------------- | --------------------------------------------------- |
+| `barge_in_false_positive`         | Turn detection: stop on barge-in; resume correctly  |
+| `turn_detection_late_cutoff`      | Detection latency > 400ms → violation               |
+| `room_routing_mismatch`           | Private content in shared room → silent             |
+| `ambiguity_no_clarification`      | Low confidence intent acted on without asking       |
+| `spoken_length_exceeded_personal` | PERSONAL mode > 2 sentences                         |
+| `spoken_length_exceeded_family`   | FAMILY mode > 3 sentences                           |
+| `low_confidence_no_abstention`    | IntentConfidence < 0.65 acted on directly           |
+| `silence_violated_shared_room`    | Spoke private content in shared room                |
+| `spoken_regret_triggered`         | User says "stop" / "not now" / "don't say that"     |
+| `emergency_length_exceeded`       | EMERGENCY mode > 1 sentence                         |
+| `work_mode_briefing_length`       | WORK mode ≤ 4 sentences                             |
+| `clarification_interrogation`     | > 1 clarification question in same turn             |
+| `private_content_no_room_check`   | Personal content without checking room surface      |
+
+---
+
+## Rubric Checks
+
+The `voice_quality` rubric category verifies:
+- `voice-quality-engineering.md` exists
+- Silence quality section present
+- `spoken_regret_rate` defined
+- ≥ 13 voice eval fixtures present
+
+See also: `docs/architecture/trust-kpis-and-drift-model.md`

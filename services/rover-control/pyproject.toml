@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rover-control"
+version = "0.1.0"
+description = "Rover mission control — bridges orchestrator jobs to ROS2 Nav2"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.135.0",
+    "uvicorn[standard]>=0.34.0",
+    "pydantic>=2.12.0",
+    "aiomqtt>=2.3.0",
+    "httpx>=0.28.1",
+    "structlog>=25.1.0",
+    "prometheus-client>=0.22.0",
+]
+
+[project.optional-dependencies]
+ros2 = [
+    # rclpy, nav2_msgs, geometry_msgs are provided by ROS2 environment
+    # Do not list here; install via rosdep
+]
+dev = [
+    "pytest>=8.4.0",
+    "pytest-asyncio>=1.0.0",
+    "ruff>=0.11.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100

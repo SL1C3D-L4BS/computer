@@ -1,0 +1,167 @@
+name: docs-gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "**/*.md"
+      - "apps/**"
+      - "services/**"
+      - "packages/**"
+      - "robotics/**"
+      - "infra/**"
+      - ".markdownlint.json"
+
+jobs:
+  readme-presence:
+    name: README presence check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check README exists for all apps
+        run: |
+          missing=0
+          for dir in apps/*/; do
+            if [ ! -f "${dir}README.md" ]; then
+              echo "MISSING README: ${dir}"
+              missing=$((missing + 1))
+            fi
+          done
+          if [ $missing -gt 0 ]; then
+            echo "::error::$missing app(s) missing README.md"
+            exit 1
+          fi
+          echo "All apps have README.md ✓"
+
+      - name: Check README exists for all services
+        run: |
+          missing=0
+          for dir in services/*/; do
+            if [ ! -f "${dir}README.md" ]; then
+              echo "MISSING README: ${dir}"
+              missing=$((missing + 1))
+            fi
+          done
+          if [ $missing -gt 0 ]; then
+            echo "::error::$missing service(s) missing README.md"
+            exit 1
+          fi
+          echo "All services have README.md ✓"
+
+      - name: Check README exists for all packages
+        run: |
+          missing=0
+          for dir in packages/*/; do
+            if [ ! -f "${dir}README.md" ]; then
+              echo "MISSING README: ${dir}"
+              missing=$((missing + 1))
+            fi
+          done
+          if [ $missing -gt 0 ]; then
+            echo "::error::$missing package(s) missing README.md"
+            exit 1
+          fi
+          echo "All packages have README.md ✓"
+
+  markdownlint:
+    name: Markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli@0.41.0
+
+      - name: Lint markdown files
+        run: |
+          markdownlint \
+            "README.md" \
+            "apps/**/*.md" \
+            "services/**/*.md" \
+            "packages/**/*.md" \
+            "docs/**/*.md" \
+            "robotics/**/*.md" \
+            "infra/**/*.md" \
+            --ignore "**/.pytest_cache/**" \
+            --ignore "**/node_modules/**" \
+            --config .markdownlint.json
+
+  readme-sections:
+    name: README section validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate core service READMEs have required sections
+        run: |
+          python3 - << 'PYEOF'
+          import os
+          import sys
+
+          REQUIRED_SECTIONS = [
+              "## Overview",
+              "## Responsibilities",
+              "## Interfaces",
+              "## Failure Modes",
+          ]
+
+          CORE_SERVICES = [
+              "services/runtime-kernel",
+              "services/attention-engine",
+              "services/workflow-runtime",
+              "services/authz-service",
+              "services/memory-service",
+              "services/eval-runner",
+              "services/voice-gateway",
+          ]
+
+          failed = []
+          for svc in CORE_SERVICES:
+              readme_path = os.path.join(svc, "README.md")
+              if not os.path.exists(readme_path):
+                  failed.append(f"{readme_path}: MISSING")
+                  continue
+              with open(readme_path) as f:
+                  content = f.read()
+              for section in REQUIRED_SECTIONS:
+                  if section not in content:
+                      failed.append(f"{readme_path}: missing '{section}'")
+
+          if failed:
+              for f in failed:
+                  print(f"FAIL: {f}")
+              sys.exit(1)
+          else:
+              print(f"All {len(CORE_SERVICES)} core service READMEs have required sections ✓")
+          PYEOF
+
+  docs-index-fresh:
+    name: Docs index freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify docs/README.md exists
+        run: |
+          if [ ! -f "docs/README.md" ]; then
+            echo "::error::docs/README.md missing — run python3 scripts/generate_docs_index.py"
+            exit 1
+          fi
+          echo "docs/README.md present ✓"
+
+      - name: Verify docs/cli/command-reference.md exists
+        run: |
+          if [ ! -f "docs/cli/command-reference.md" ]; then
+            echo "::error::docs/cli/command-reference.md missing"
+            exit 1
+          fi
+          echo "docs/cli/command-reference.md present ✓"
+
+      - name: Verify docs/standards/documentation-style-guide.md exists
+        run: |
+          if [ ! -f "docs/standards/documentation-style-guide.md" ]; then
+            echo "::error::docs/standards/documentation-style-guide.md missing"
+            exit 1
+          fi
+          echo "docs/standards/documentation-style-guide.md present ✓"

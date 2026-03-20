@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>rover_control</name>
+  <version>0.1.0</version>
+  <description>Rover control ROS2 package — Nav2 bridge and mission management</description>
+  <maintainer email="founder@computer.local">Computer Project</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>nav2_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>nav2_lifecycle_manager</depend>
+
+  <test_depend>ament_pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

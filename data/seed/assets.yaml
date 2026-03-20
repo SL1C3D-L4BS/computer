@@ -1,0 +1,364 @@
+# assets.yaml — Spokane site asset seed data
+# Loaded by digital-twin seed script on first bootstrap.
+# All asset_ids follow canonical taxonomy: asset:<class>:<subtype>:<zone>:<id>
+
+assets:
+
+  # ── Sensors: Temperature ────────────────────────────────────────────────────
+  - asset_id: "asset:sensor:temp:greenhouse-north"
+    name: "Greenhouse North — Temperature Sensor"
+    asset_type: "sensor:temperature"
+    capabilities: ["read:temperature"]
+    zone: "greenhouse-north"
+    state: {value: null, unit: "celsius", last_updated: null}
+    qualification_level: "QA1"
+    vendor_entity: {platform: "home_assistant", entity_id: "sensor.greenhouse_north_temp"}
+    metadata:
+      model: "SHT40"
+      protocol: "MQTT"
+      topic: "sensor/greenhouse-north/temp"
+
+  - asset_id: "asset:sensor:temp:greenhouse-south"
+    name: "Greenhouse South — Temperature Sensor"
+    asset_type: "sensor:temperature"
+    capabilities: ["read:temperature"]
+    zone: "greenhouse-south"
+    state: {value: null, unit: "celsius", last_updated: null}
+    qualification_level: "QA1"
+    vendor_entity: {platform: "home_assistant", entity_id: "sensor.greenhouse_south_temp"}
+
+  - asset_id: "asset:sensor:temp:hydro-bay-1"
+    name: "Hydroponic Bay 1 — Water Temperature"
+    asset_type: "sensor:temperature"
+    capabilities: ["read:temperature"]
+    zone: "hydro-bay-1"
+    state: {value: null, unit: "celsius", last_updated: null}
+    qualification_level: "QA1"
+
+  # ── Sensors: Humidity ───────────────────────────────────────────────────────
+  - asset_id: "asset:sensor:humidity:greenhouse-north"
+    name: "Greenhouse North — Humidity Sensor"
+    asset_type: "sensor:humidity"
+    capabilities: ["read:humidity"]
+    zone: "greenhouse-north"
+    state: {value: null, unit: "percent_rh", last_updated: null}
+    qualification_level: "QA1"
+    vendor_entity: {platform: "home_assistant", entity_id: "sensor.greenhouse_north_humidity"}
+
+  # ── Sensors: Soil ───────────────────────────────────────────────────────────
+  - asset_id: "asset:sensor:soil-moisture:field-zone-1"
+    name: "Field Zone 1 — Soil Moisture"
+    asset_type: "sensor:soil_moisture"
+    capabilities: ["read:volumetric_moisture"]
+    zone: "field-zone-1"
+    state: {value: null, unit: "percent_vwc", last_updated: null}
+    qualification_level: "QA1"
+
+  - asset_id: "asset:sensor:soil-moisture:field-zone-2"
+    name: "Field Zone 2 — Soil Moisture"
+    asset_type: "sensor:soil_moisture"
+    capabilities: ["read:volumetric_moisture"]
+    zone: "field-zone-2"
+    state: {value: null, unit: "percent_vwc", last_updated: null}
+    qualification_level: "QA1"
+
+  # ── Sensors: pH / EC (Hydroponics) ──────────────────────────────────────────
+  - asset_id: "asset:sensor:ph:hydro-bay-1"
+    name: "Hydroponic Bay 1 — pH Probe"
+    asset_type: "sensor:ph"
+    capabilities: ["read:ph"]
+    zone: "hydro-bay-1"
+    state: {value: null, unit: "pH", last_updated: null}
+    qualification_level: "QA1"
+    metadata:
+      probe: "Atlas Scientific EZO-pH"
+      calibration_interval_days: 30
+
+  - asset_id: "asset:sensor:ec:hydro-bay-1"
+    name: "Hydroponic Bay 1 — EC Probe"
+    asset_type: "sensor:ec"
+    capabilities: ["read:electrical_conductivity"]
+    zone: "hydro-bay-1"
+    state: {value: null, unit: "mS/cm", last_updated: null}
+    qualification_level: "QA1"
+    metadata:
+      probe: "Atlas Scientific EZO-EC"
+      calibration_interval_days: 90
+
+  # ── Sensors: Flow ───────────────────────────────────────────────────────────
+  - asset_id: "asset:sensor:flow:irrigation:zone-1"
+    name: "Irrigation Zone 1 — Flow Sensor"
+    asset_type: "sensor:flow"
+    capabilities: ["read:flow_rate", "read:volume_total"]
+    zone: "field-zone-1"
+    state: {value: null, unit: "L/min", last_updated: null}
+    qualification_level: "QA1"
+
+  - asset_id: "asset:sensor:flow:irrigation:zone-2"
+    name: "Irrigation Zone 2 — Flow Sensor"
+    asset_type: "sensor:flow"
+    capabilities: ["read:flow_rate", "read:volume_total"]
+    zone: "field-zone-2"
+    state: {value: null, unit: "L/min", last_updated: null}
+    qualification_level: "QA1"
+
+  # ── Sensors: Energy ─────────────────────────────────────────────────────────
+  - asset_id: "asset:sensor:energy:grid-meter"
+    name: "Grid Energy Meter"
+    asset_type: "sensor:energy_meter"
+    capabilities: ["read:grid_import_kw", "read:grid_export_kw", "read:total_kwh"]
+    zone: "main-building"
+    state: {value: null, unit: "kW", last_updated: null}
+    qualification_level: "QA1"
+    vendor_entity: {platform: "home_assistant", entity_id: "sensor.grid_energy_import"}
+
+  - asset_id: "asset:sensor:energy:solar-production"
+    name: "Solar Production Meter"
+    asset_type: "sensor:solar_meter"
+    capabilities: ["read:solar_production_kw", "read:daily_kwh"]
+    zone: "main-building"
+    state: {value: null, unit: "kW", last_updated: null}
+    qualification_level: "QA1"
+    vendor_entity: {platform: "home_assistant", entity_id: "sensor.solar_production_kw"}
+
+  # ── Sensors: Security Cameras ───────────────────────────────────────────────
+  - asset_id: "asset:sensor:camera:exterior-north"
+    name: "Exterior North Camera"
+    asset_type: "sensor:camera"
+    capabilities: ["stream:rtsp", "detect:motion", "detect:object"]
+    zone: "perimeter"
+    state: {value: "idle", last_updated: null}
+    qualification_level: "QA1"
+    vendor_entity: {platform: "frigate", camera_name: "exterior_north"}
+
+  - asset_id: "asset:sensor:camera:greenhouse-north"
+    name: "Greenhouse North Camera"
+    asset_type: "sensor:camera"
+    capabilities: ["stream:rtsp", "detect:motion", "detect:object"]
+    zone: "greenhouse-north"
+    state: {value: "idle", last_updated: null}
+    qualification_level: "QA1"
+    vendor_entity: {platform: "frigate", camera_name: "greenhouse_north"}
+
+  - asset_id: "asset:sensor:camera:driveway"
+    name: "Driveway Camera"
+    asset_type: "sensor:camera"
+    capabilities: ["stream:rtsp", "detect:motion", "detect:object"]
+    zone: "perimeter"
+    state: {value: "idle", last_updated: null}
+    qualification_level: "QA1"
+    vendor_entity: {platform: "frigate", camera_name: "driveway"}
+
+  # ── Actuators: Irrigation Valves ─────────────────────────────────────────────
+  - asset_id: "asset:actuator:valve:irrigation:zone-1"
+    name: "Irrigation Valve Zone 1"
+    asset_type: "actuator:valve:irrigation"
+    capabilities: ["control:open", "control:close"]
+    zone: "field-zone-1"
+    state: {value: "closed", last_updated: null}
+    qualification_level: "QA2"
+    metadata:
+      max_open_duration_minutes: 120
+      fail_safe: "closed"
+
+  - asset_id: "asset:actuator:valve:irrigation:zone-2"
+    name: "Irrigation Valve Zone 2"
+    asset_type: "actuator:valve:irrigation"
+    capabilities: ["control:open", "control:close"]
+    zone: "field-zone-2"
+    state: {value: "closed", last_updated: null}
+    qualification_level: "QA2"
+    metadata:
+      max_open_duration_minutes: 120
+      fail_safe: "closed"
+
+  - asset_id: "asset:actuator:valve:irrigation:greenhouse-north"
+    name: "Greenhouse North Irrigation Valve"
+    asset_type: "actuator:valve:irrigation"
+    capabilities: ["control:open", "control:close"]
+    zone: "greenhouse-north"
+    state: {value: "closed", last_updated: null}
+    qualification_level: "QA2"
+    metadata:
+      fail_safe: "closed"
+
+  - asset_id: "asset:actuator:valve:irrigation:greenhouse-south"
+    name: "Greenhouse South Irrigation Valve"
+    asset_type: "actuator:valve:irrigation"
+    capabilities: ["control:open", "control:close"]
+    zone: "greenhouse-south"
+    state: {value: "closed", last_updated: null}
+    qualification_level: "QA2"
+    metadata:
+      fail_safe: "closed"
+
+  # ── Actuators: Well Pump ─────────────────────────────────────────────────────
+  - asset_id: "asset:actuator:pump:well:main"
+    name: "Main Well Pump"
+    asset_type: "actuator:pump:well"
+    capabilities: ["control:start", "control:stop"]
+    zone: "main-building"
+    state: {value: "off", last_updated: null}
+    qualification_level: "QA2"
+    metadata:
+      max_run_duration_minutes: 180
+      fail_safe: "off"
+
+  # ── Actuators: Greenhouse Heating ────────────────────────────────────────────
+  - asset_id: "asset:actuator:heater:greenhouse-north"
+    name: "Greenhouse North Backup Heater"
+    asset_type: "actuator:heater"
+    capabilities: ["control:enable", "control:disable", "control:set_target_temp"]
+    zone: "greenhouse-north"
+    state: {value: "off", last_updated: null}
+    qualification_level: "QA2"
+    metadata:
+      type: "electric_fan_heater"
+      max_wattage: 1500
+      fail_safe: "off"
+
+  - asset_id: "asset:actuator:heater:greenhouse-south"
+    name: "Greenhouse South Backup Heater"
+    asset_type: "actuator:heater"
+    capabilities: ["control:enable", "control:disable"]
+    zone: "greenhouse-south"
+    state: {value: "off", last_updated: null}
+    qualification_level: "QA2"
+    metadata:
+      fail_safe: "off"
+
+  # ── Actuators: Ventilation ───────────────────────────────────────────────────
+  - asset_id: "asset:actuator:vent:greenhouse-north"
+    name: "Greenhouse North Vent Fan"
+    asset_type: "actuator:ventilation"
+    capabilities: ["control:on", "control:off", "control:set_speed"]
+    zone: "greenhouse-north"
+    state: {value: "off", speed_percent: 0, last_updated: null}
+    qualification_level: "QA2"
+
+  # ── Actuators: Hydroponics Dosing ────────────────────────────────────────────
+  - asset_id: "asset:actuator:pump:nutrient:hydro-bay-1-a"
+    name: "Hydroponic Bay 1 — Nutrient Pump A"
+    asset_type: "actuator:pump:nutrient"
+    capabilities: ["control:dose", "control:stop"]
+    zone: "hydro-bay-1"
+    state: {value: "idle", last_updated: null}
+    qualification_level: "QA2"
+    metadata:
+      pump_type: "peristaltic"
+      flow_rate_ml_per_min: 30
+      nutrient: "Part-A"
+      fail_safe: "off"
+      calibration_interval_days: 90
+
+  - asset_id: "asset:actuator:pump:nutrient:hydro-bay-1-b"
+    name: "Hydroponic Bay 1 — Nutrient Pump B"
+    asset_type: "actuator:pump:nutrient"
+    capabilities: ["control:dose", "control:stop"]
+    zone: "hydro-bay-1"
+    state: {value: "idle", last_updated: null}
+    qualification_level: "QA2"
+    metadata:
+      pump_type: "peristaltic"
+      flow_rate_ml_per_min: 30
+      nutrient: "Part-B"
+      fail_safe: "off"
+
+  - asset_id: "asset:actuator:pump:ph-up:hydro-bay-1"
+    name: "Hydroponic Bay 1 — pH Up Pump"
+    asset_type: "actuator:pump:ph_adjuster"
+    capabilities: ["control:dose", "control:stop"]
+    zone: "hydro-bay-1"
+    state: {value: "idle", last_updated: null}
+    qualification_level: "QA2"
+    metadata:
+      pump_type: "peristaltic"
+      flow_rate_ml_per_min: 10
+      chemical: "pH-Up"
+      fail_safe: "off"
+
+  - asset_id: "asset:actuator:pump:ph-down:hydro-bay-1"
+    name: "Hydroponic Bay 1 — pH Down Pump"
+    asset_type: "actuator:pump:ph_adjuster"
+    capabilities: ["control:dose", "control:stop"]
+    zone: "hydro-bay-1"
+    state: {value: "idle", last_updated: null}
+    qualification_level: "QA2"
+    metadata:
+      pump_type: "peristaltic"
+      flow_rate_ml_per_min: 10
+      chemical: "pH-Down"
+      fail_safe: "off"
+
+  # ── Energy Storage ───────────────────────────────────────────────────────────
+  - asset_id: "asset:storage:battery:bluetti-ac300-1"
+    name: "Bluetti AC300 Battery Pack 1"
+    asset_type: "storage:battery"
+    capabilities: ["read:soc", "control:charge_rate", "control:discharge_rate"]
+    zone: "main-building"
+    state: {soc_percent: null, mode: "auto", last_updated: null}
+    qualification_level: "QA1"
+    vendor_entity: {platform: "home_assistant", entity_id: "sensor.bluetti_ac300_1_soc"}
+
+  - asset_id: "asset:storage:battery:bluetti-ac300-2"
+    name: "Bluetti AC300 Battery Pack 2"
+    asset_type: "storage:battery"
+    capabilities: ["read:soc", "control:charge_rate", "control:discharge_rate"]
+    zone: "main-building"
+    state: {soc_percent: null, mode: "auto", last_updated: null}
+    qualification_level: "QA1"
+    vendor_entity: {platform: "home_assistant", entity_id: "sensor.bluetti_ac300_2_soc"}
+
+  # ── Compute Nodes ─────────────────────────────────────────────────────────────
+  - asset_id: "asset:compute:node:server-rack-primary"
+    name: "Primary Server Rack"
+    asset_type: "compute:server"
+    capabilities: ["monitor:power", "monitor:health"]
+    zone: "main-building"
+    state: {value: "running", last_updated: null}
+    qualification_level: "QA1"
+
+  - asset_id: "asset:compute:node:ai-inference-gpu"
+    name: "AI Inference GPU Node"
+    asset_type: "compute:gpu"
+    capabilities: ["inference:llm", "inference:vision", "monitor:vram", "monitor:gpu_util"]
+    zone: "main-building"
+    state: {value: "running", last_updated: null}
+    qualification_level: "QA1"
+    metadata:
+      gpu: "NVIDIA RTX 4090"
+      vram_gb: 24
+
+  - asset_id: "asset:compute:node:voice-node-greenhouse-north"
+    name: "Voice Node — Greenhouse North (Pi 5)"
+    asset_type: "compute:edge_node"
+    capabilities: ["voice:wake_word", "voice:stt", "voice:tts"]
+    zone: "greenhouse-north"
+    state: {value: "running", last_updated: null}
+    qualification_level: "QA1"
+    metadata:
+      hardware: "Raspberry Pi 5"
+      wake_word_engine: "porcupine"
+      stt_engine: "whisper"
+      tts_engine: "piper"
+
+  # ── Robotics ──────────────────────────────────────────────────────────────────
+  - asset_id: "asset:robot:rover:field-rover-001"
+    name: "Field Rover 001"
+    asset_type: "robot:ground_rover"
+    capabilities: [
+      "navigate:waypoint",
+      "navigate:return_home",
+      "sensor:read:soil_probe",
+      "sensor:read:multispectral",
+      "control:e_stop"
+    ]
+    zone: "field-zone-1"
+    state: {value: "idle", battery_soc: null, position: null, last_updated: null}
+    qualification_level: "QA0"  # Not yet field-qualified
+    metadata:
+      chassis: "differential_drive"
+      gnss: "Unicore UM982 RTK"
+      imu: "BNO085"
+      lidar: "pending"
+      ros2_node: "rover_001"

@@ -1,0 +1,201 @@
+# Bill of Materials — Phase 1 (Site Platform + Safety + Simulation)
+# Status: components required for Milestone 1-2.
+# Columns: item, qty, unit_cost_usd, status, supplier, notes
+
+bom_version: "1.0.0"
+phase: 1
+description: "Site Platform + Safety + Simulation"
+
+categories:
+
+  compute:
+    - item: "Server rack — Eaton SmartRack 12U"
+      qty: 1
+      unit_cost_usd: 450
+      status: "procured"
+      notes: "Primary server housing"
+
+    - item: "Compute node — AMD EPYC or Intel Xeon (64GB ECC RAM)"
+      qty: 1
+      unit_cost_usd: 2800
+      status: "procured"
+      notes: "Orchestrator, digital-twin, API services"
+
+    - item: "AI inference node — NVIDIA RTX 4090 workstation"
+      qty: 1
+      unit_cost_usd: 3200
+      status: "procured"
+      notes: "LLM inference (70B Q4_K_M), Frigate GPU detection"
+
+    - item: "Apple M4 Max Mac Studio (option)"
+      qty: 1
+      unit_cost_usd: 2999
+      status: "planned"
+      notes: "Alternative AI inference; 70B Q4_K_M @ ~28 tok/s"
+
+    - item: "Raspberry Pi 5 (4GB) — voice nodes"
+      qty: 3
+      unit_cost_usd: 60
+      status: "procured"
+      notes: "Greenhouse North, Greenhouse South, Main Building"
+
+    - item: "ZFS NAS storage — 4x 4TB SATA HDD"
+      qty: 1
+      unit_cost_usd: 600
+      status: "procured"
+      notes: "Media, backup, Frigate recordings"
+
+    - item: "UPS — APC Smart-UPS 1500VA"
+      qty: 1
+      unit_cost_usd: 350
+      status: "procured"
+      notes: "Rack UPS for compute nodes"
+
+  networking:
+    - item: "OPNSense firewall appliance"
+      qty: 1
+      unit_cost_usd: 380
+      status: "procured"
+      notes: "Site gateway, VLAN, VPN"
+
+    - item: "Ubiquiti UniFi Switch Pro 24"
+      qty: 1
+      unit_cost_usd: 350
+      status: "procured"
+      notes: "Managed switch, VLAN trunking"
+
+    - item: "Ubiquiti UniFi AP U6 Pro (indoor)"
+      qty: 2
+      unit_cost_usd: 179
+      status: "procured"
+      notes: "Main building WiFi coverage"
+
+    - item: "Ubiquiti AirMAX PtP link"
+      qty: 1
+      unit_cost_usd: 280
+      status: "planned"
+      notes: "Barn/greenhouse backbone"
+
+    - item: "TP-Link Omada outdoor AP (EAP620 HD)"
+      qty: 2
+      unit_cost_usd: 99
+      status: "planned"
+      notes: "Greenhouse and field coverage"
+
+  sensors_greenhouse:
+    - item: "SHT40 temperature/humidity sensor (I2C)"
+      qty: 6
+      unit_cost_usd: 12
+      status: "procured"
+      notes: "2 per greenhouse + 2 spare"
+
+    - item: "MQTT IoT gateway (ESP32 + MQTT)"
+      qty: 4
+      unit_cost_usd: 15
+      status: "procured"
+      notes: "One per zone for sensor aggregation"
+
+    - item: "DS18B20 soil temperature probe"
+      qty: 4
+      unit_cost_usd: 8
+      status: "procured"
+
+  sensors_hydroponics:
+    - item: "Atlas Scientific EZO-pH circuit + probe"
+      qty: 2
+      unit_cost_usd: 98
+      status: "procured"
+      notes: "Bay 1 + spare"
+
+    - item: "Atlas Scientific EZO-EC circuit + probe"
+      qty: 2
+      unit_cost_usd: 98
+      status: "procured"
+      notes: "Bay 1 + spare"
+
+    - item: "Atlas Scientific EZO-DO (dissolved oxygen)"
+      qty: 1
+      unit_cost_usd: 98
+      status: "planned"
+
+    - item: "Peristaltic pump — 12V DC (nutrient dosing)"
+      qty: 6
+      unit_cost_usd: 25
+      status: "procured"
+      notes: "Nutrient A, B, pH-Up, pH-Down + 2 spare"
+
+    - item: "Arduino UNO R4 WiFi (hydroponics controller)"
+      qty: 2
+      unit_cost_usd: 28
+      status: "procured"
+      notes: "Primary + spare"
+
+  actuators:
+    - item: "Solenoid valve — 3/4\" 24VAC (irrigation)"
+      qty: 8
+      unit_cost_usd: 18
+      status: "procured"
+      notes: "6 zones + 2 spare; fail-safe closed"
+
+    - item: "Latching relay module (24VAC valve driver)"
+      qty: 2
+      unit_cost_usd: 22
+      status: "procured"
+      notes: "8-channel; drives irrigation valves"
+
+    - item: "Well pump controller (24V DC relay)"
+      qty: 1
+      unit_cost_usd: 45
+      status: "planned"
+
+  energy:
+    - item: "Bluetti AC300 + 2x B300 battery module"
+      qty: 2
+      unit_cost_usd: 2800
+      status: "procured"
+      notes: "6.14 kWh total storage; AC/solar/grid input"
+
+    - item: "Solar panels — 400W monocrystalline"
+      qty: 30
+      unit_cost_usd: 85
+      status: "procured"
+      notes: "12kW DC array"
+
+    - item: "SolarEdge SE10000H inverter"
+      qty: 1
+      unit_cost_usd: 2200
+      status: "procured"
+
+    - item: "Emporia Vue 3 energy monitor"
+      qty: 1
+      unit_cost_usd: 89
+      status: "procured"
+      notes: "Grid + solar + circuit-level monitoring"
+
+  security:
+    - item: "Reolink RLC-810A IP camera (8MP PoE)"
+      qty: 6
+      unit_cost_usd: 65
+      status: "procured"
+      notes: "Exterior + greenhouse cameras"
+
+    - item: "Frigate NVR server (runs on GPU inference node)"
+      qty: 1
+      unit_cost_usd: 0
+      status: "software"
+      notes: "Software only; uses GPU inference node"
+
+    - item: "Google Coral USB accelerator"
+      qty: 1
+      unit_cost_usd: 75
+      status: "planned"
+      notes: "Backup detection when GPU unavailable"
+
+totals:
+  compute_usd: 10459
+  networking_usd: 1566
+  sensors_usd: 754
+  actuators_usd: 151
+  energy_usd: 6989
+  security_usd: 465
+  phase_1_total_usd: 20384

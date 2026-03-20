@@ -1,0 +1,89 @@
+{
+  "scenario_id": "SOCIAL-02",
+  "name": "Founder Deep Work — WORK Mode Suppressed Interrupts",
+  "description": "Founder in WORK mode with high attention load. Non-critical events should not interrupt. Only CRITICAL events bypass suppression. Suppression state machine prevents fatigue.",
+  "hypothesis": "In WORK mode with attention_load=0.8, non-critical alerts have net_value(INTERRUPT) < 0 and should be QUEUED or DIGESTED.",
+  "success_criterion": "INTERRUPT rate < 10% for non-critical events when attention_load > 0.7 in WORK mode.",
+  "rollback_threshold": "INTERRUPT rate on non-critical > 30% in WORK mode triggers attention calibration review.",
+  "eval_tier": "T1_offline",
+  "mode": "WORK",
+  "surface": "WEB",
+
+  "steps": [
+    {
+      "step": 1,
+      "actor": "founder_user",
+      "event_type": "irrigation.status_update",
+      "urgency": 0.3,
+      "attention_load": 0.85,
+      "identity_confidence": 0.95,
+      "risk_class": "LOW",
+      "expected_attention_decision": "DIGEST",
+      "expected_net_value_sign": "negative_interrupt",
+      "notes": "Low urgency routine update during deep work → DIGEST"
+    },
+    {
+      "step": 2,
+      "actor": "founder_user",
+      "event_type": "security.motion_detected",
+      "urgency": 0.5,
+      "attention_load": 0.85,
+      "identity_confidence": 0.95,
+      "risk_class": "MEDIUM",
+      "expected_attention_decision": "QUEUE",
+      "notes": "Moderate urgency security alert → QUEUE (not INTERRUPT due to attention_load)"
+    },
+    {
+      "step": 3,
+      "actor": "system",
+      "event_type": "security.motion_detected",
+      "urgency": 0.5,
+      "attention_load": 0.85,
+      "identity_confidence": 0.95,
+      "risk_class": "MEDIUM",
+      "expected_attention_decision": "QUEUE",
+      "notes": "Same event type second time → still QUEUE; queue_without_ack_count increments"
+    },
+    {
+      "step": 4,
+      "actor": "system",
+      "event_type": "security.motion_detected",
+      "urgency": 0.5,
+      "attention_load": 0.85,
+      "identity_confidence": 0.95,
+      "risk_class": "MEDIUM",
+      "expected_attention_decision": "QUEUE",
+      "notes": "Third occurrence → suppression_state transitions to ESCALATION_PENDING"
+    },
+    {
+      "step": 5,
+      "actor": "system",
+      "event_type": "security.motion_detected",
+      "urgency": 0.5,
+      "attention_load": 0.85,
+      "identity_confidence": 0.95,
+      "risk_class": "MEDIUM",
+      "expected_attention_decision": "INTERRUPT",
+      "notes": "Fourth occurrence in ESCALATION_PENDING state → forced INTERRUPT (escalation rule)"
+    },
+    {
+      "step": 6,
+      "actor": "system",
+      "event_type": "site.e_stop_triggered",
+      "urgency": 1.0,
+      "attention_load": 0.85,
+      "identity_confidence": 0.95,
+      "risk_class": "CRITICAL",
+      "expected_attention_decision": "INTERRUPT",
+      "notes": "CRITICAL event always bypasses suppression regardless of attention_load"
+    }
+  ],
+
+  "audit_trail_assertions": [
+    "Steps 1-4 have decision != INTERRUPT for non-CRITICAL events",
+    "Step 5 has suppression_state=ESCALATION_PENDING before transition",
+    "Step 6 has risk_class=CRITICAL in DecisionRationale",
+    "All steps have AttentionCost in audit log",
+    "All steps have DecisionRationale with constraints_checked"
+  ]
+}

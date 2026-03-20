@@ -1,0 +1,10 @@
+[project]
+name = "mcp-tools"
+version = "0.1.0"
+description = "MCP tool definitions with outputSchema and T0-T4 tier annotations"
+requires-python = ">=3.14"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

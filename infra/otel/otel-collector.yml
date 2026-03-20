@@ -1,0 +1,134 @@
+# OpenTelemetry Collector — Computer Runtime Kernel Tracing
+#
+# trace-gateway is CONFIG-ONLY (per plan decision log).
+# This OTEL Collector config routes spans from all CRK services.
+#
+# Span naming convention: crk.{step_name}
+# Examples: crk.1_input_ingestion, crk.6_authz_check, crk.7b_control_job_bind
+#
+# trace_id is threaded through ExecutionContext — one trace = voice input to response.
+#
+# Reference: docs/observability/end-to-end-tracing-plan.md
+# ADR: ADR-024 (Traceability Plane)
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "0.0.0.0:4317"
+      http:
+        endpoint: "0.0.0.0:4318"
+  # Prometheus metrics scraping
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: "computer-services"
+          scrape_interval: 15s
+          static_configs:
+            - targets:
+                - "runtime-kernel:8063"
+                - "attention-engine:8062"
+                - "authz-service:8060"
+                - "mcp-gateway:8061"
+                - "workflow-runtime:8050"
+                - "context-router:8030"
+                - "orchestrator:8002"
+                - "control-api:8000"
+                - "assistant-api:8021"
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+  # Add resource attributes to all telemetry
+  resource:
+    attributes:
+      - key: "deployment.environment"
+        value: "homestead"
+        action: insert
+      - key: "service.namespace"
+        value: "computer"
+        action: insert
+
+  # Tail-based sampling: always sample CRITICAL and ERROR; sample 10% of the rest
+  probabilistic_sampler:
+    hash_seed: 22
+    sampling_percentage: 10
+
+  # Memory limiter to avoid OOM on high-traffic traces
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+connectors:
+  # SpanMetrics: auto-generate service latency and error rate metrics from spans
+  spanmetrics:
+    histogram:
+      explicit:
+        buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s]
+    dimensions:
+      - name: crk.step
+      - name: service.name
+      - name: trace_id
+    metrics_expiration: 5m
+
+  # Service graph: dependency map from span relationships
+  servicegraph:
+    latency_histogram_buckets: [5ms, 50ms, 250ms, 1s]
+
+exporters:
+  # Tempo: distributed tracing backend
+  otlp/tempo:
+    endpoint: "tempo:4317"
+    tls:
+      insecure: true
+
+  # Loki: structured log aggregation
+  loki:
+    endpoint: "http://loki:3100/loki/api/v1/push"
+    labels:
+      resource:
+        service.name: "service_name"
+        service.namespace: "namespace"
+      attributes:
+        crk.step: "crk_step"
+
+  # Prometheus remote write for metrics
+  prometheusremotewrite:
+    endpoint: "http://prometheus:9090/api/v1/write"
+    tls:
+      insecure: true
+
+  # Debug exporter for local development
+  debug:
+    verbosity: basic
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+service:
+  pipelines:
+    # Traces: OTLP → batch → Tempo
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [otlp/tempo, spanmetrics, servicegraph]
+
+    # Metrics: Prometheus scrape + SpanMetrics connector → Prometheus remote write
+    metrics:
+      receivers: [prometheus, spanmetrics, servicegraph]
+      processors: [memory_limiter, batch]
+      exporters: [prometheusremotewrite, debug]
+
+    # Logs: OTLP → Loki
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [loki]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: "0.0.0.0:8888"

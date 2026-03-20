@@ -1,0 +1,151 @@
+name: Simulation CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  milestone-1-sim:
+    name: "Milestone 1: Typed End-to-End Event Flow (Docker)"
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: computer
+          POSTGRES_DB: computer_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:8.6-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    env:
+      POSTGRES_URL: postgresql+asyncpg://computer:testpass@localhost:5432/computer_test
+      REDIS_URL: redis://localhost:6379/0
+      MQTT_HOST: localhost
+      MQTT_PORT: 1883
+      DIGITAL_TWIN_URL: http://localhost:8001
+      ORCHESTRATOR_URL: http://localhost:8002
+      CONTROL_API_URL: http://localhost:8000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install uv and services
+        run: |
+          pip install uv
+          uv sync --project apps/orchestrator
+          uv sync --project apps/control-api
+          uv sync --project apps/digital-twin
+          uv sync --project apps/event-ingest
+
+      - name: Initialize database schema
+        run: |
+          psql postgresql://computer:testpass@localhost:5432/computer_test \
+            -f infra/docker/init/postgres-init.sql || true
+
+      - name: Start digital-twin
+        run: |
+          uv run --project apps/digital-twin \
+            uvicorn digital_twin.main:app --host 127.0.0.1 --port 8001 &
+          sleep 3
+          curl -f http://localhost:8001/health || exit 1
+        env:
+          DATABASE_URL: postgresql+asyncpg://computer:testpass@localhost:5432/computer_test
+
+      - name: Start orchestrator
+        run: |
+          uv run --project apps/orchestrator \
+            uvicorn orchestrator.main:app --host 127.0.0.1 --port 8002 &
+          sleep 3
+          curl -f http://localhost:8002/health || exit 1
+        env:
+          DATABASE_URL: postgresql+asyncpg://computer:testpass@localhost:5432/computer_test
+          REDIS_URL: redis://localhost:6379/0
+          DIGITAL_TWIN_URL: http://localhost:8001
+
+      - name: Start control-api
+        run: |
+          uv run --project apps/control-api \
+            uvicorn control_api.main:app --host 127.0.0.1 --port 8000 &
+          sleep 3
+          curl -f http://localhost:8000/health || exit 1
+        env:
+          ORCHESTRATOR_URL: http://localhost:8002
+
+      - name: Submit test job (LOW risk — auto-approve path)
+        run: |
+          curl -sf -X POST http://localhost:8000/jobs \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer dev-token" \
+            -d '{
+              "type": "sensor.read",
+              "origin": "OPERATOR",
+              "target_asset_ids": ["asset:sensor:temp:greenhouse-north"],
+              "risk_class": "LOW",
+              "parameters": {"reading_type": "temperature"}
+            }' | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print(json.dumps(d, indent=2))
+          assert d.get('state') in ('APPROVED', 'EXECUTING', 'COMPLETED'), f'Unexpected state: {d}'
+          print('PASS: LOW risk job auto-approved')
+          "
+
+      - name: Submit test job (HIGH risk — requires operator approval)
+        run: |
+          JOB=$(curl -sf -X POST http://localhost:8000/jobs \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer dev-token" \
+            -d '{
+              "type": "irrigation.zone.enable",
+              "origin": "OPERATOR",
+              "target_asset_ids": ["asset:actuator:valve:irrigation:zone-1"],
+              "risk_class": "HIGH",
+              "parameters": {"zone": "zone-1", "duration_minutes": 30}
+            }')
+          echo "$JOB" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print(json.dumps(d, indent=2))
+          assert d.get('state') == 'VALIDATING', f'Expected VALIDATING, got: {d.get(\"state\")}'
+          print('PASS: HIGH risk job requires approval')
+          "
+
+      - name: Fitness Function F05 — reject AI AUTO-approving HIGH-risk jobs
+        run: |
+          uv run --project apps/orchestrator \
+            pytest tests/test_state_machine.py -v
+
+      - name: Health check — all services alive
+        run: |
+          curl -f http://localhost:8001/health
+          curl -f http://localhost:8002/health
+          curl -f http://localhost:8000/health
+          echo "All services healthy."
+
+      - name: Summary
+        run: |
+          echo ""
+          echo "Milestone 1 CI PASSED:"
+          echo "  [x] Services start and expose /health"
+          echo "  [x] LOW risk jobs are auto-approved"
+          echo "  [x] HIGH risk jobs require operator approval (not auto-approved)"
+          echo "  [x] F05 policy enforcement verified"
+          echo ""

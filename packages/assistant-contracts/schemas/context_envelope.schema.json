@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://computer.local/schemas/context_envelope.schema.json",
+  "title": "ContextEnvelope",
+  "description": "Output of context-router. Passed to model-router for every assistant request. Contains resolved identity, mode, memory scope, and routing decision.",
+  "type": "object",
+  "required": ["envelope_id", "request_id", "session_id", "user_id", "role", "mode", "eligible_memory_scopes", "intent_class", "max_tool_tier", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "envelope_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Correlation ID from the incoming request"
+    },
+    "session_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "Resolved user identity from identity-service"
+    },
+    "role": {
+      "type": "string",
+      "enum": ["FOUNDER_ADMIN", "ADULT_MEMBER", "CHILD_GUEST", "MAINTENANCE_OPERATOR"],
+      "description": "Household role of the user"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["PERSONAL", "FAMILY", "WORK", "SITE", "EMERGENCY"],
+      "description": "Current operating mode for this conversation turn"
+    },
+    "eligible_memory_scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["PERSONAL", "HOUSEHOLD_SHARED", "SITE_SYSTEM"]
+      },
+      "description": "Which memory scopes may be accessed in this context"
+    },
+    "intent_class": {
+      "type": "string",
+      "enum": ["PERSONAL", "HOUSEHOLD", "SITE_OPS", "HIGH_RISK_CONTROL", "AMBIGUOUS"],
+      "description": "Classified intent of this request"
+    },
+    "max_tool_tier": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4,
+      "description": "Maximum tool tier (T0–T4) allowed in this context. model-router enforces this."
+    },
+    "routing_action": {
+      "type": "string",
+      "enum": ["ANSWER", "ASK", "ESCALATE"],
+      "description": "Whether to answer, ask a clarifying question, or escalate"
+    },
+    "escalation_reason": {
+      "type": "string",
+      "description": "Why escalation is required, if routing_action=ESCALATE"
+    },
+    "device_id": {
+      "type": "string",
+      "description": "ID of the device making the request (voice device, web session, etc.)"
+    },
+    "device_location": {
+      "type": "string",
+      "description": "Physical location of the device (kitchen, office, etc.)"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

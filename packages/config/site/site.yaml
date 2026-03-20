@@ -1,0 +1,214 @@
+# site.yaml — Spokane site configuration
+# This file is the single source of truth for all site-specific parameters.
+# Services load this via the site-config SDK (packages/config/sdk).
+# NEVER import this directly in core services; use the SDK.
+
+site_id: "spokane-001"
+site_name: "Spokane Homestead"
+timezone: "America/Los_Angeles"
+location:
+  lat: 47.6062
+  lon: -117.3321
+  elevation_m: 550
+  usda_hardiness_zone: "6b"
+  koppen_climate: "BSk"  # Cold semi-arid
+
+# ── Network ──────────────────────────────────────────────────────────────────
+network:
+  management_vlan: 10
+  iot_vlan: 20
+  security_vlan: 30
+  servers_vlan: 40
+  guest_vlan: 50
+  vpn_subnet: "10.10.0.0/24"
+
+# ── Zones ────────────────────────────────────────────────────────────────────
+zones:
+  - zone_id: "greenhouse-north"
+    name: "North Greenhouse"
+    type: "greenhouse"
+    area_sqft: 800
+    structure: "passive-solar"
+    heat_system: "gaht"  # Ground-to-Air Heat Transfer
+    frost_threshold_celsius: 2.0
+
+  - zone_id: "greenhouse-south"
+    name: "South Greenhouse"
+    type: "greenhouse"
+    area_sqft: 600
+    structure: "passive-solar"
+    heat_system: "gaht"
+    frost_threshold_celsius: 2.0
+
+  - zone_id: "field-zone-1"
+    name: "Field Zone 1 — North Garden"
+    type: "outdoor_field"
+    area_sqft: 2400
+    irrigation_type: "drip"
+
+  - zone_id: "field-zone-2"
+    name: "Field Zone 2 — South Garden"
+    type: "outdoor_field"
+    area_sqft: 1800
+    irrigation_type: "drip"
+
+  - zone_id: "hydro-bay-1"
+    name: "Hydroponic Bay 1"
+    type: "hydroponics"
+    area_sqft: 200
+    system_type: "nft"  # Nutrient Film Technique
+
+  - zone_id: "main-building"
+    name: "Main Building"
+    type: "building"
+
+  - zone_id: "perimeter"
+    name: "Site Perimeter"
+    type: "security_zone"
+
+# ── Crops ────────────────────────────────────────────────────────────────────
+crops:
+  greenhouse-north:
+    - crop: "tomatoes"
+      variety: "Cherokee Purple"
+      planted: "2026-03-01"
+      expected_harvest: "2026-07-15"
+      optimal_temp_range_celsius: [18, 28]
+      optimal_humidity_range_pct: [60, 80]
+
+    - crop: "basil"
+      variety: "Genovese"
+      planted: "2026-03-10"
+      expected_harvest: "2026-04-15"
+      optimal_temp_range_celsius: [20, 30]
+
+    - crop: "peppers"
+      variety: "Poblano"
+      planted: "2026-02-15"
+      expected_harvest: "2026-08-01"
+      optimal_temp_range_celsius: [20, 30]
+
+  hydro-bay-1:
+    - crop: "lettuce"
+      variety: "Buttercrunch"
+      planted: "2026-03-15"
+      expected_harvest: "2026-04-25"
+      optimal_temp_range_celsius: [16, 22]
+      optimal_ph_range: [5.8, 6.2]
+      optimal_ec_range_ms: [0.8, 1.6]
+
+    - crop: "kale"
+      variety: "Lacinato"
+      planted: "2026-03-10"
+      expected_harvest: "2026-04-20"
+      optimal_ph_range: [6.0, 7.0]
+      optimal_ec_range_ms: [1.6, 2.5]
+
+# ── Energy tariffs ───────────────────────────────────────────────────────────
+energy:
+  utility: "Avista Utilities"
+  account_type: "residential"
+  net_metering: true
+
+  tou_schedule:
+    timezone: "America/Los_Angeles"
+    peak:
+      rate_per_kwh: 0.142
+      windows:
+        - days: [Mon, Tue, Wed, Thu, Fri]
+          start: "07:00"
+          end: "21:00"
+    off_peak:
+      rate_per_kwh: 0.089
+      windows:
+        - days: [Mon, Tue, Wed, Thu, Fri]
+          start: "21:00"
+          end: "07:00"
+        - days: [Sat, Sun]
+          start: "00:00"
+          end: "23:59"
+
+  solar:
+    system_kw_dc: 12.0
+    panel_count: 30
+    inverter: "SolarEdge SE10000H"
+    orientation_degrees: 180  # South-facing
+    tilt_degrees: 35
+    forecast_api: "solcast"
+
+  storage:
+    batteries:
+      - id: "bluetti-ac300-1"
+        model: "Bluetti AC300"
+        capacity_kwh: 3.072
+        max_charge_kw: 3.0
+        max_discharge_kw: 3.0
+      - id: "bluetti-ac300-2"
+        model: "Bluetti AC300"
+        capacity_kwh: 3.072
+        max_charge_kw: 3.0
+        max_discharge_kw: 3.0
+
+  peak_shave_target_kw: 5.0
+  grid_charge_threshold_soc_pct: 20
+  discharge_reserve_soc_pct: 15
+
+# ── Frost alert thresholds ────────────────────────────────────────────────────
+frost_protection:
+  enabled: true
+  forecast_source: "open-meteo"
+  alert_threshold_celsius: 2.0
+  critical_threshold_celsius: -2.0
+  auto_heat_enable_threshold_celsius: 1.0
+  heat_enable_risk_class: "HIGH"  # Requires operator approval
+
+# ── Irrigation ────────────────────────────────────────────────────────────────
+irrigation:
+  water_source: "well"
+  pump_id: "asset:actuator:pump:well:main"
+  zones:
+    - zone_id: "field-zone-1"
+      valve_id: "asset:actuator:valve:irrigation:zone-1"
+      max_duration_minutes: 120
+      default_duration_minutes: 45
+      flow_sensor_id: "asset:sensor:flow:irrigation:zone-1"
+
+    - zone_id: "field-zone-2"
+      valve_id: "asset:actuator:valve:irrigation:zone-2"
+      max_duration_minutes: 120
+      default_duration_minutes: 45
+      flow_sensor_id: "asset:sensor:flow:irrigation:zone-2"
+
+    - zone_id: "greenhouse-north"
+      valve_id: "asset:actuator:valve:irrigation:greenhouse-north"
+      max_duration_minutes: 60
+      default_duration_minutes: 20
+
+    - zone_id: "greenhouse-south"
+      valve_id: "asset:actuator:valve:irrigation:greenhouse-south"
+      max_duration_minutes: 60
+      default_duration_minutes: 20
+
+# ── Security ──────────────────────────────────────────────────────────────────
+security:
+  cameras:
+    - id: "asset:sensor:camera:exterior-north"
+      name: "Exterior North"
+      zone: "perimeter"
+      frigate_camera_name: "exterior_north"
+      rtsp_url_env: "CAMERA_NORTH_RTSP_URL"
+
+    - id: "asset:sensor:camera:greenhouse-north"
+      name: "Greenhouse North Interior"
+      zone: "greenhouse-north"
+      frigate_camera_name: "greenhouse_north"
+      rtsp_url_env: "CAMERA_GREENHOUSE_N_RTSP_URL"
+
+    - id: "asset:sensor:camera:driveway"
+      name: "Driveway"
+      zone: "perimeter"
+      frigate_camera_name: "driveway"
+      rtsp_url_env: "CAMERA_DRIVEWAY_RTSP_URL"
+
+  motion_alert_zones: ["perimeter", "driveway"]
+  lpr_enabled: false  # Phase D feature

@@ -1,0 +1,60 @@
+name: computer-infra
+
+services:
+  postgres:
+    image: postgres:18.3
+    container_name: computer-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: computer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      POSTGRES_DB: computer_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init/postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U computer"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8.6-alpine
+    container_name: computer-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-devpassword}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-devpassword}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mosquitto:
+    image: eclipse-mosquitto:2.1.2
+    container_name: computer-mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "8883:8883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/acl.conf:/mosquitto/config/acl.conf:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
+    healthcheck:
+      test: ["CMD", "mosquitto_pub", "-h", "localhost", "-t", "healthcheck", "-m", "ping", "-u", "healthcheck", "-P", "${MQTT_HEALTHCHECK_PASSWORD:-devpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  mosquitto_data:
+  mosquitto_logs:

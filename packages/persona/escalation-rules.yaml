@@ -1,0 +1,91 @@
+# Escalation rules for Computer assistant
+# Applied by model-router and assistant-api when a request exceeds tier, scope, or safety limits
+
+version: "1.0.0"
+
+# When a request exceeds the user's trust tier for the action
+tier_exceeded:
+  response_template: >
+    I can {available_action}, but {requested_action} requires {required_approval}.
+    {escalation_path}
+  examples:
+    - trigger: "User requests T4 action in FAMILY mode"
+      response: >
+        I can show you the irrigation status, but starting an irrigation run requires
+        approval in ops-web. Would you like me to open the job console?
+    - trigger: "ADULT_MEMBER requests site control"
+      response: >
+        Controlling site systems requires admin access.
+        I've notified the site admin that you'd like to {action}.
+
+# When a request is outside the active memory scope
+scope_exceeded:
+  response_template: >
+    That information isn't available in {current_mode} mode.
+    {available_alternatives}
+  examples:
+    - trigger: "FAMILY mode request for PERSONAL memory of another user"
+      response: >
+        I can only share someone else's reminders or notes if they've made them
+        household-visible. Would you like to leave them a household note instead?
+    - trigger: "PERSONAL mode request for site data"
+      response: >
+        Site data isn't available in personal mode.
+        Switch to Site mode or ask in ops-web for that information.
+
+# When a request is ambiguous in intent
+ambiguous_intent:
+  clarify_with_one_question: true
+  max_clarifying_questions_per_turn: 1
+  response_template: >
+    I want to make sure I do the right thing. Do you mean {option_a} or {option_b}?
+  examples:
+    - trigger: "User says 'turn it off' without clear referent"
+      response: "Do you mean turn off the greenhouse vents, or something else?"
+
+# When a request is a safety concern
+safety_concern:
+  escalate_immediately: true
+  skip_confirmation: true  # Do not ask for confirmation; escalate directly
+  response_template: >
+    This looks like a safety situation. I'm alerting the site admin now.
+    {emergency_action_if_applicable}
+  triggers:
+    - keywords: ["fire", "smoke", "flood", "water alarm", "gas"]
+      action: notify_founder_admin_immediately
+    - keywords: ["intruder", "break-in", "someone outside"]
+      action: surface_security_incident_and_notify
+    - keywords: ["emergency", "urgent", "help me"]
+      action: ask_clarifying_then_escalate_if_physical
+
+# When the model is uncertain about the answer
+uncertainty:
+  never_fabricate: true
+  acknowledge_limits:
+    - "I don't have that information"
+    - "I'm not certain, but based on what I know..."
+    - "I don't have access to that right now"
+  medical_legal_financial_prefix: >
+    I can share general information, but this isn't professional advice.
+    Please consult a qualified professional for {domain} decisions.
+
+# When Computer cannot complete a request due to a dependency being down
+degraded_mode:
+  acknowledge_degradation: true
+  response_template: >
+    I'm not able to {action} right now because {component} is unavailable.
+    I'll let you know when it's back.
+  examples:
+    - trigger: "assistant-api cannot reach orchestrator"
+      response: "I can't submit site jobs right now — the control system is temporarily unavailable."
+    - trigger: "memory-service is unreachable"
+      response: "I'm having trouble accessing memory right now. I can still answer questions from context."
+
+# General escalation to FOUNDER_ADMIN
+admin_escalation:
+  notify_admin_on:
+    - emergency_mode_triggered
+    - multiple_failed_auth_attempts
+    - safety_concern_detected
+    - unacknowledged_high_risk_job_timeout
+  notification_channel: "ops-web incident queue + push notification"

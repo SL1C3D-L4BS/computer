@@ -1,0 +1,93 @@
+rules:
+
+  # F01: AI paths must never publish directly to command topics
+  - id: no-mqtt-publish-from-ai-paths
+    patterns:
+      - pattern: |
+          $CLIENT.publish($TOPIC, ...)
+      - metavariable-regex:
+          metavariable: $TOPIC
+          regex: '.*command[s]?(/|\\|").*'
+    message: |
+      AI service is attempting to publish to a command MQTT topic.
+      Only orchestrator/control services may publish to command/# topics.
+      Architecture Fitness Function F01 violation.
+      See docs/safety/actuation-policy.md.
+    languages: [python]
+    severity: ERROR
+    paths:
+      include:
+        - apps/model-router/**
+        - apps/assistant-api/**
+        - services/context-router/**
+
+  # F01: No direct aiomqtt publish in AI service files
+  - id: no-aiomqtt-publish-in-ai
+    patterns:
+      - pattern: |
+          await $CLIENT.publish(...)
+    message: |
+      AI service is using aiomqtt publish.
+      AI services must never publish to MQTT.
+      Route through orchestrator's propose-job endpoint instead.
+      Architecture Fitness Function F01 violation.
+    languages: [python]
+    severity: ERROR
+    paths:
+      include:
+        - apps/model-router/**
+        - apps/assistant-api/**
+        - services/context-router/**
+
+  # F02: No vendor entity strings in core orchestrator/digital-twin
+  - id: no-vendor-entity-in-core
+    patterns:
+      - pattern: |
+          $VAR = "entity_id"
+    message: |
+      Vendor entity_id found in core service.
+      Core services must use canonical asset_id only.
+      Adapter layer is responsible for vendor<->canonical translation.
+      Architecture Fitness Function F02 violation.
+      See docs/productization/adapter-interface-contracts.md.
+    languages: [python]
+    severity: WARNING
+    paths:
+      include:
+        - apps/orchestrator/**
+        - apps/digital-twin/**
+      exclude:
+        - apps/orchestrator/tests/**
+
+  # No hardcoded secrets
+  - id: no-hardcoded-secrets
+    patterns:
+      - pattern: |
+          $PASSWORD = "..."
+      - metavariable-regex:
+          metavariable: $PASSWORD
+          regex: '.*(password|secret|token|key|credential).*'
+    message: |
+      Hardcoded credential detected.
+      Use environment variables loaded from .env files.
+      Never commit secrets to source control.
+    languages: [python, typescript, javascript]
+    severity: ERROR
+
+  # Audit log required for HIGH/CRITICAL commands
+  - id: missing-audit-for-high-risk
+    patterns:
+      - pattern: |
+          risk_class = RiskClass.HIGH
+          ...
+      - pattern-not: |
+          audit_log(...)
+    message: |
+      HIGH risk class set without audit log call.
+      All HIGH and CRITICAL risk jobs require mandatory audit entries.
+      Architecture Fitness Function F04 violation.
+    languages: [python]
+    severity: WARNING
+    paths:
+      include:
+        - apps/orchestrator/**

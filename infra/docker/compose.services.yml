@@ -1,0 +1,156 @@
+services:
+  greenhouse-control:
+    build:
+      context: ../../services/greenhouse-control
+      dockerfile: Dockerfile
+    environment:
+      - ORCHESTRATOR_URL=http://localhost:8002
+      - DIGITAL_TWIN_URL=http://localhost:8001
+      - MQTT_HOST=localhost
+      - MQTT_PORT=1883
+      - MQTT_USER_GREENHOUSE=${MQTT_USER_GREENHOUSE:-greenhouse-control}
+      - MQTT_PASS_GREENHOUSE=${MQTT_PASS_GREENHOUSE}
+      - FROST_THRESHOLD_CELSIUS=${FROST_THRESHOLD_CELSIUS:-2.0}
+      - HIGH_TEMP_THRESHOLD_CELSIUS=${HIGH_TEMP_THRESHOLD_CELSIUS:-35.0}
+    ports:
+      - "8010:8010"
+    network_mode: host
+    depends_on:
+      - computer-infra
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  hydro-control:
+    build:
+      context: ../../services/hydro-control
+      dockerfile: Dockerfile
+    environment:
+      - ORCHESTRATOR_URL=http://localhost:8002
+      - DIGITAL_TWIN_URL=http://localhost:8001
+      - MQTT_HOST=localhost
+      - MQTT_PORT=1883
+      - HYDRO_PH_TARGET=${HYDRO_PH_TARGET:-6.0}
+      - HYDRO_EC_TARGET_MS=${HYDRO_EC_TARGET_MS:-1.6}
+    ports:
+      - "8011:8011"
+    network_mode: host
+    depends_on:
+      - computer-infra
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  energy-engine:
+    build:
+      context: ../../services/energy-engine
+      dockerfile: Dockerfile
+    environment:
+      - ORCHESTRATOR_URL=http://localhost:8002
+      - DIGITAL_TWIN_URL=http://localhost:8001
+      - MQTT_HOST=localhost
+      - PEAK_SHAVE_TARGET_KW=${PEAK_SHAVE_TARGET_KW:-5.0}
+      - GRID_CHARGE_THRESHOLD_SOC=${GRID_CHARGE_THRESHOLD_SOC:-20.0}
+      - DISCHARGE_RESERVE_SOC=${DISCHARGE_RESERVE_SOC:-15.0}
+    ports:
+      - "8012:8012"
+    network_mode: host
+    depends_on:
+      - computer-infra
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8012/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  rover-control:
+    build:
+      context: ../../services/rover-control
+      dockerfile: Dockerfile
+    environment:
+      - ORCHESTRATOR_URL=http://localhost:8002
+      - DIGITAL_TWIN_URL=http://localhost:8001
+      - MQTT_HOST=localhost
+      - MQTT_PORT=1883
+      - MQTT_USER_ROVER=${MQTT_USER_ROVER:-rover-control}
+      - MQTT_PASS_ROVER=${MQTT_PASS_ROVER}
+      - ROVER_ID=${ROVER_ID:-field-rover-001}
+    ports:
+      - "8040:8040"
+    network_mode: host
+    depends_on:
+      - computer-infra
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8040/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  drone-control:
+    build:
+      context: ../../services/drone-control
+      dockerfile: Dockerfile
+    environment:
+      - ORCHESTRATOR_URL=http://localhost:8002
+      - DIGITAL_TWIN_URL=http://localhost:8001
+      - MQTT_HOST=localhost
+      - MQTT_PORT=1883
+      - MQTT_USER_DRONE=${MQTT_USER_DRONE:-drone-control}
+      - MQTT_PASS_DRONE=${MQTT_PASS_DRONE}
+      - DRONE_ID=${DRONE_ID:-aerial-drone-001}
+      - PX4_SITL_HOST=${PX4_SITL_HOST:-127.0.0.1}
+      - PX4_SITL_PORT=${PX4_SITL_PORT:-14540}
+    ports:
+      - "8041:8041"
+    network_mode: host
+    depends_on:
+      - computer-infra
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8041/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - robotics  # Only starts with --profile robotics
+
+  ha-adapter:
+    build:
+      context: ../../services/ha-adapter
+      dockerfile: Dockerfile
+    environment:
+      - HA_URL=${HA_URL:-http://homeassistant.local:8123}
+      - HA_TOKEN=${HA_TOKEN}
+      - DIGITAL_TWIN_URL=http://localhost:8001
+      - MQTT_HOST=localhost
+      - MQTT_PORT=1883
+      - MQTT_USER_HA_ADAPTER=${MQTT_USER_HA_ADAPTER:-ha-adapter}
+      - MQTT_PASS_HA_ADAPTER=${MQTT_PASS_HA_ADAPTER}
+    ports:
+      - "8013:8013"
+    network_mode: host
+    depends_on:
+      - computer-infra
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8013/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - adapters  # Optional: only starts with --profile adapters
+
+networks:
+  default:
+    external: true
+    name: computer-infra
+
+volumes: {}

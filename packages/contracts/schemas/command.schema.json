@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://computer.local/schemas/command.schema.json",
+  "title": "CommandEnvelope",
+  "description": "MQTT command_request and command_ack payloads. Published only by orchestrator (command_request) and control services (command_ack). Every command is traceable to a job.",
+  "oneOf": [
+    { "$ref": "#/$defs/CommandRequest" },
+    { "$ref": "#/$defs/CommandAck" }
+  ],
+  "$defs": {
+    "CommandRequest": {
+      "type": "object",
+      "title": "CommandRequest",
+      "description": "Published by orchestrator to command_request topic. Received by control service.",
+      "required": ["command_id", "job_id", "request_id", "type", "asset_id", "parameters", "dispatched_at", "timeout_seconds"],
+      "additionalProperties": false,
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Unique ID for this command dispatch"
+        },
+        "job_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "request_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Correlation ID propagated from original request"
+        },
+        "type": {
+          "type": "string",
+          "description": "Command type",
+          "examples": ["valve.open", "valve.close", "pump.start", "pump.stop", "vent.open", "vent.close", "rover.navigate", "rover.stop", "drone.execute_mission"]
+        },
+        "asset_id": {
+          "type": "string",
+          "description": "Target asset ID"
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Command-type-specific parameters",
+          "additionalProperties": true
+        },
+        "dispatched_by": {
+          "type": "string",
+          "description": "Service that dispatched (always orchestrator)"
+        },
+        "dispatched_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Seconds before orchestrator considers this command timed out"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["NORMAL", "HIGH", "EMERGENCY"],
+          "default": "NORMAL"
+        }
+      }
+    },
+    "CommandAck": {
+      "type": "object",
+      "title": "CommandAck",
+      "description": "Published by control service to command_ack topic. Received by orchestrator.",
+      "required": ["command_id", "job_id", "request_id", "status", "acknowledged_at"],
+      "additionalProperties": false,
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "job_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "request_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ACCEPTED", "EXECUTING", "COMPLETED", "FAILED", "REJECTED", "TIMEOUT"],
+          "description": "Outcome of the command"
+        },
+        "acknowledged_by": {
+          "type": "string",
+          "description": "Control service that acknowledged"
+        },
+        "acknowledged_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "outcome_data": {
+          "type": "object",
+          "description": "Optional outcome metrics or readings",
+          "additionalProperties": true
+        },
+        "error_message": {
+          "type": "string",
+          "description": "Error message if status=FAILED or REJECTED"
+        }
+      }
+    }
+  }
+}

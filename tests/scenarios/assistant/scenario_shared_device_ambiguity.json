@@ -1,0 +1,75 @@
+{
+  "scenario_id": "SOCIAL-05",
+  "name": "Shared Device Voice Confidence Degradation",
+  "description": "Kitchen shared device. Voice recognition confidence degrades across requests as background noise increases. Shared-device ambiguity rule progressively downgrades mode and restricts access.",
+  "hypothesis": "As IdentityConfidence decreases across requests on a shared device, the system correctly applies the ambiguity rule: downgrade to FAMILY at <0.7, restrict to GUEST at <0.3.",
+  "success_criterion": "Mode degrades gracefully matching identity confidence levels. No hard failures. Each degradation includes explanation.",
+  "rollback_threshold": "Personal data returned at identity_confidence < 0.7 is a privacy violation.",
+  "eval_tier": "T1_offline",
+  "surface": "VOICE",
+
+  "steps": [
+    {
+      "step": 1,
+      "actor": "owner_user",
+      "utterance": "What are my reminders for today?",
+      "identity_confidence": 0.92,
+      "expected_mode": "PERSONAL",
+      "expected_scope": "PERSONAL",
+      "expected_decision": "PROCEED",
+      "notes": "High confidence — PERSONAL mode, personal reminders permitted"
+    },
+    {
+      "step": 2,
+      "actor": "uncertain_speaker",
+      "utterance": "What are my reminders for today?",
+      "identity_confidence": 0.65,
+      "expected_mode": "FAMILY",
+      "expected_scope": "HOUSEHOLD_SHARED",
+      "expected_decision": "REJECT_SCOPE",
+      "expected_response_fragment": "I'm not certain who's speaking",
+      "invariants_checked": ["I-02"],
+      "notes": "Confidence 0.65 < 0.7 → downgrade to FAMILY; personal reminders not returned"
+    },
+    {
+      "step": 3,
+      "actor": "uncertain_speaker",
+      "utterance": "Who are you talking to?",
+      "identity_confidence": 0.40,
+      "expected_mode": "FAMILY",
+      "expected_scope": "HOUSEHOLD_SHARED",
+      "expected_decision": "PROCEED",
+      "notes": "General question — permitted in FAMILY mode"
+    },
+    {
+      "step": 4,
+      "actor": "unknown_speaker",
+      "utterance": "Set a reminder for my doctor appointment.",
+      "identity_confidence": 0.18,
+      "expected_mode": "FAMILY",
+      "expected_scope": "GUEST_READ_ONLY",
+      "expected_decision": "REJECT_SCOPE",
+      "invariants_checked": ["I-02", "I-06"],
+      "notes": "Confidence 0.18 < 0.40 — hard floor. Action rejected. Cannot create personal commitments."
+    },
+    {
+      "step": 5,
+      "actor": "owner_user",
+      "utterance": "Hey Computer, it's [owner_name] — [authentication token]",
+      "identity_confidence": 0.94,
+      "expected_mode": "PERSONAL",
+      "expected_scope": "PERSONAL",
+      "expected_decision": "MODE_UPGRADE",
+      "invariants_checked": ["I-07"],
+      "notes": "Re-authentication restores PERSONAL mode with mode_change_reason"
+    }
+  ],
+
+  "audit_trail_assertions": [
+    "Steps 1-4: identity_confidence values correctly tracked in ConfidenceScore",
+    "Step 2: InvariantCheckResult for I-02; mode=FAMILY",
+    "Step 4: InvariantCheckResult for I-06 (confidence < 0.40 floor)",
+    "Step 5: mode_change_reason present (invariant I-07)",
+    "All steps: DisturbanceRecord for 'asr_confidence_error' on steps with confidence < 0.7"
+  ]
+}

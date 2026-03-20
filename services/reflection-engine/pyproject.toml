@@ -1,0 +1,10 @@
+[project]
+name = "reflection-engine"
+version = "0.1.0"
+description = "Pattern analysis and typed policy adjustment proposals — no auto-apply"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "structlog>=24.0.0",
+]

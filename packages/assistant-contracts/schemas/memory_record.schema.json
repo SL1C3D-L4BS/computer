@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://computer.local/schemas/memory_record.schema.json",
+  "title": "MemoryRecord",
+  "description": "A single memory record in the personal/household/site memory store.",
+  "type": "object",
+  "required": ["memory_id", "user_id", "scope", "memory_type", "content", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "memory_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "Owner of this memory record. For HOUSEHOLD_SHARED, this is the user who created it."
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["PERSONAL", "HOUSEHOLD_SHARED", "SITE_SYSTEM"],
+      "description": "Memory scope — determines who can read/write this record"
+    },
+    "memory_type": {
+      "type": "string",
+      "enum": [
+        "REMINDER",
+        "NOTE",
+        "PREFERENCE",
+        "ROUTINE",
+        "TASK",
+        "CALENDAR_EVENT",
+        "SHOPPING_ITEM",
+        "CHORE",
+        "HOUSEHOLD_NOTE",
+        "WORK_CONTEXT",
+        "SITE_SUMMARY",
+        "MAINTENANCE_NOTE",
+        "CONTACT"
+      ]
+    },
+    "content": {
+      "type": "string",
+      "description": "Human-readable content of the memory record"
+    },
+    "structured_data": {
+      "type": "object",
+      "description": "Optional structured representation of the content",
+      "additionalProperties": true
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "User-defined or system-assigned tags for retrieval"
+    },
+    "embedding": {
+      "type": "array",
+      "items": { "type": "number" },
+      "description": "Vector embedding for semantic search (generated locally; not stored in JSON representation)"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this record expires; null for indefinite records"
+    },
+    "trigger_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "For REMINDER type: when to surface this reminder"
+    },
+    "triggered": {
+      "type": "boolean",
+      "description": "For REMINDER type: whether it has been surfaced"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

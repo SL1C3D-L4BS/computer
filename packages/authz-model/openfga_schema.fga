@@ -1,0 +1,76 @@
+# OpenFGA Authorization Schema — Computer Domain
+# Stub: defines types, relations, and conditions for V4 ReBAC migration.
+# Status: SCHEMA STUB — not yet connected to a running OpenFGA server.
+# Reference: docs/architecture/rebac-auth-evolution.md | ADR-033
+
+model
+  schema 1.1
+
+# ── User type ──────────────────────────────────────────────────────────────
+type user
+
+# ── Household ──────────────────────────────────────────────────────────────
+type household
+  relations
+    define resident: [user]
+    define owner:    [user]
+    define guest:    [user] but not resident and not owner
+
+# ── Site ──────────────────────────────────────────────────────────────────
+type site
+  relations
+    define operator:  [user]
+    define viewer:    [user, household#resident]
+    define can_view:  viewer or operator
+    define can_operate: operator
+
+# ── Memory Entry ──────────────────────────────────────────────────────────
+# Scope-level trust: personal entries only accessible to owner.
+# Explicit sharing grants access to named users or all household residents.
+type memory_entry
+  relations
+    define owner:       [user]
+    define shared_with: [user, household#resident]
+    define can_read:    owner or shared_with
+    define can_delete:  owner
+
+# ── Policy ────────────────────────────────────────────────────────────────
+# policy publish requires approval_track_verified (passkey re-auth)
+# This enforces the policy-publish-gate invariant at the auth layer.
+type policy
+  relations
+    define author:                  [user]
+    define approval_track_verified: [user]
+    define can_read:                author or approval_track_verified
+    define can_publish:             approval_track_verified
+
+# ── Device ────────────────────────────────────────────────────────────────
+# Device trust is a prerequisite for approval track capability.
+type device
+  relations
+    define trusted_by:              [user]
+    define approval_track_capable:  trusted_by
+
+# ── Workflow ──────────────────────────────────────────────────────────────
+type workflow
+  relations
+    define initiator:  [user]
+    define assignee:   [user, household#resident]
+    define can_view:   initiator or assignee
+    define can_cancel: initiator
+
+# ── Approval Request ──────────────────────────────────────────────────────
+# Approval-track requests require passkey re-auth.
+type approval_request
+  relations
+    define requester:   [user]
+    define approver:    [user, household#owner]
+    define can_approve: approver
+    define can_view:    requester or approver
+
+# ── Example runtime tuples (for reference, not evaluated by FGA parser) ──
+# tuple: user:founder   member    household:main
+# tuple: user:spouse    resident  household:main
+# tuple: user:founder   operator  site:homestead
+# tuple: user:founder   author    policy:attention_thresholds
+# tuple: device:phone1  trusted_by  user:founder

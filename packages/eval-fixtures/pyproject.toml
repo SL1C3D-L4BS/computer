@@ -1,0 +1,10 @@
+[project]
+name = "eval-fixtures"
+version = "0.1.0"
+description = "Labeled behavioral evaluation fixtures for AI regression testing"
+requires-python = ">=3.14"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

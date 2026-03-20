@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://computer.local/schemas/event.schema.json",
+  "title": "CanonicalEvent",
+  "description": "Canonical event — the normalized representation of any telemetry, sensor alert, security event, or system event. All adapters (HA, Frigate, OSINT, control services) produce this format.",
+  "type": "object",
+  "required": ["event_id", "event_type", "source_service", "asset_id", "timestamp", "payload"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Correlation ID if this event is associated with a job or user request"
+    },
+    "job_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Job ID if this event was produced as part of a job execution"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "TELEMETRY",
+        "SENSOR_ALERT",
+        "SENSOR_RECOVERY",
+        "SECURITY_DETECTION",
+        "SECURITY_REVIEW",
+        "SYSTEM_HEALTH",
+        "SYSTEM_ERROR",
+        "JOB_STATE_CHANGE",
+        "COMMAND_DISPATCHED",
+        "COMMAND_ACKNOWLEDGED",
+        "OSINT_ALERT",
+        "CALIBRATION_DUE",
+        "MAINTENANCE_REQUIRED",
+        "ASSET_STATE_CHANGE",
+        "EMERGENCY_TRIGGERED",
+        "EMERGENCY_CLEARED"
+      ]
+    },
+    "source_service": {
+      "type": "string",
+      "description": "Service that produced this event",
+      "examples": ["ha-adapter", "frigate-adapter", "greenhouse-control", "orchestrator", "event-ingest"]
+    },
+    "asset_id": {
+      "type": "string",
+      "description": "Canonical asset ID from digital-twin. Required for asset-related events."
+    },
+    "zone": {
+      "type": "string",
+      "description": "Site zone"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["INFO", "WARNING", "ALERT", "CRITICAL"],
+      "description": "Event severity; affects routing to incident queue"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event occurred (device/source time if available, else ingest time)"
+    },
+    "ingested_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When event-ingest received and processed this event"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Event-type-specific payload; structure defined per event_type below",
+      "additionalProperties": true
+    },
+    "raw_source": {
+      "type": "object",
+      "description": "Original vendor payload; for debugging and audit only; stripped before storage in some configurations",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "TelemetryPayload": {
+      "type": "object",
+      "required": ["readings"],
+      "properties": {
+        "readings": {
+          "type": "object",
+          "description": "Key-value sensor readings, e.g. {\"temperature_c\": 22.5, \"humidity_pct\": 68.2}"
+        },
+        "unit": { "type": "string" }
+      }
+    },
+    "SensorAlertPayload": {
+      "type": "object",
+      "required": ["condition", "threshold", "actual_value"],
+      "properties": {
+        "condition": { "type": "string", "description": "e.g. ABOVE_THRESHOLD, BELOW_THRESHOLD, RATE_OF_CHANGE" },
+        "threshold": {},
+        "actual_value": {}
+      }
+    },
+    "SecurityDetectionPayload": {
+      "type": "object",
+      "required": ["label", "confidence"],
+      "properties": {
+        "label": { "type": "string", "description": "e.g. person, vehicle, animal" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "bounding_box": {
+          "type": "object",
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "width": { "type": "number" },
+            "height": { "type": "number" }
+          }
+        },
+        "camera_asset_id": { "type": "string" },
+        "clip_url": { "type": "string" },
+        "snapshot_url": { "type": "string" }
+      }
+    }
+  }
+}

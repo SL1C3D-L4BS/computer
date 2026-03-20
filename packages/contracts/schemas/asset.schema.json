@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://computer.local/schemas/asset.schema.json",
+  "title": "Asset",
+  "description": "Digital-twin asset — a physical or logical entity with stable identity and capability tags. Orchestrator references assets by ID and capability, never by vendor entity name.",
+  "type": "object",
+  "required": ["asset_id", "name", "asset_type", "capabilities", "zone", "state"],
+  "additionalProperties": false,
+  "properties": {
+    "asset_id": {
+      "type": "string",
+      "description": "Stable UUID for this asset; never changes even if hardware is replaced"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name"
+    },
+    "asset_type": {
+      "type": "string",
+      "pattern": "^(sensor|actuator|robot|compute|camera|power):[a-z_:]+$",
+      "description": "Capability type tag taxonomy: sensor:temperature, actuator:valve:irrigation, robot:rover, etc.",
+      "examples": [
+        "sensor:temperature",
+        "sensor:ph",
+        "sensor:flow",
+        "sensor:motion",
+        "actuator:valve:irrigation",
+        "actuator:relay:heater",
+        "actuator:pump:dosing",
+        "robot:rover",
+        "robot:drone",
+        "camera:fixed",
+        "camera:ptz",
+        "power:battery",
+        "power:solar"
+      ]
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "What this asset can do: open, close, start, stop, read, write, move",
+      "examples": [["open", "close", "status"], ["read"], ["navigate", "stop", "dock"]]
+    },
+    "zone": {
+      "type": "string",
+      "description": "Site zone where this asset is located (from packages/config/zones/)"
+    },
+    "location_description": {
+      "type": "string",
+      "description": "Human-readable location description"
+    },
+    "state": {
+      "type": "object",
+      "description": "Current known state of the asset; updated by adapters and control services",
+      "additionalProperties": true
+    },
+    "state_source": {
+      "type": "string",
+      "description": "Service that last updated the state",
+      "examples": ["ha-adapter", "greenhouse-control", "orchestrator"]
+    },
+    "state_updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "qualification_level": {
+      "type": "string",
+      "enum": ["QA0", "QA1", "QA2", "QA3", "QA4"],
+      "description": "Hardware qualification level from hardware-qualification-checklists.md"
+    },
+    "operational_status": {
+      "type": "string",
+      "enum": ["ONLINE", "OFFLINE", "DEGRADED", "MAINTENANCE", "E_STOPPED", "UNKNOWN"],
+      "description": "Current operational status"
+    },
+    "vendor_entity": {
+      "type": "string",
+      "description": "Vendor-specific entity identifier (e.g. HA entity ID). Used ONLY by adapters. Never used by orchestrator or core services.",
+      "examples": ["switch.irrigation_valve_north_001", "sensor.greenhouse_zone_a_temperature"]
+    },
+    "mqtt_topic_prefix": {
+      "type": "string",
+      "description": "MQTT topic prefix for this asset: computer/{site}/{domain}/{asset_id}",
+      "examples": ["computer/spokane/greenhouse/zone-a-temp-001"]
+    },
+    "calibration_due_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Next calibration due date (for calibrated assets)"
+    },
+    "maintenance_notes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Operator-recorded maintenance notes"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

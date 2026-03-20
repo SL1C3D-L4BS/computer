@@ -1,0 +1,10 @@
+[project]
+name = "authz-model"
+version = "0.1.0"
+description = "Authorization model types — RBAC v1 roles/relations/scopes; ReBAC v2 placeholder"
+requires-python = ">=3.14"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

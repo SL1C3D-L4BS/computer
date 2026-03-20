@@ -1,0 +1,41 @@
+name: computer-api
+
+services:
+  control-api:
+    build:
+      context: ../../apps/control-api
+      dockerfile: Dockerfile
+    container_name: computer-control-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      ORCHESTRATOR_URL: http://localhost:8002
+      JWT_SECRET: ${JWT_SECRET:-devsecret}
+    network_mode: "host"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  event-ingest:
+    build:
+      context: ../../apps/event-ingest
+      dockerfile: Dockerfile
+    container_name: computer-event-ingest
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://computer:${POSTGRES_PASSWORD:-devpassword}@localhost:5432/computer_dev
+      MQTT_HOST: localhost
+      MQTT_PORT: "1883"
+      MQTT_USERNAME: computer-event-ingest
+      MQTT_PASSWORD: ${MQTT_EVENT_INGEST_PASSWORD:-devpassword}
+    network_mode: "host"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10

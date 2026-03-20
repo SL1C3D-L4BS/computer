@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@computer/contracts": ["./packages/contracts/src/index.ts"],
+      "@computer/assistant-contracts": ["./packages/assistant-contracts/src/index.ts"],
+      "@computer/sdk": ["./packages/sdk/src/index.ts"],
+      "@computer/ui": ["./packages/ui/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules"]
+}

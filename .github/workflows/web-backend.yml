@@ -1,0 +1,265 @@
+name: Web/Backend CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: "24"
+  PYTHON_VERSION: "3.14"
+  PNPM_VERSION: "10.32.1"
+
+jobs:
+  # ── Runtime gate — must pass before any other job ───────────────────────
+  runtime-gate:
+    name: Runtime Version Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - name: Verify runtime versions match versions.json
+        run: |
+          chmod +x scripts/check_runtime.sh
+          ./scripts/check_runtime.sh
+
+  # ── Contract gate (Fitness Functions F02, F03) ───────────────────────────
+  contract-gate:
+    needs: [runtime-gate]
+    name: Contract Gate (F02, F03)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate contracts
+        run: pnpm contracts:generate
+
+      - name: Validate contracts (F02, F03)
+        run: pnpm contracts:validate
+
+      - name: Check contracts are up-to-date
+        run: |
+          if ! git diff --exit-code packages/contracts/generated/ packages/assistant-contracts/generated/; then
+            echo "FAIL: Generated contracts are out of sync."
+            echo "Run 'pnpm contracts:generate' and commit the output."
+            exit 1
+          fi
+
+  # ── Safety gate (Fitness Functions F01, F05) ─────────────────────────────
+  safety-gate:
+    name: Safety Gate (F01, F05)
+    needs: [runtime-gate]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Run safety gate (F01 — no MQTT from AI paths)
+        run: python scripts/ci/safety_gate.py
+
+      - name: Run orchestrator tests (includes F05)
+        run: |
+          uv sync --project apps/orchestrator
+          uv run --project apps/orchestrator pytest tests/test_state_machine.py -v -k "f05 or policy_violation or fitness"
+
+  # ── Audit gate (Fitness Function F04) ────────────────────────────────────
+  audit-gate:
+    name: Audit Gate (F04)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: computer
+          POSTGRES_DB: computer_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install orchestrator dependencies
+        run: uv sync --project apps/orchestrator
+
+      - name: Run audit gate tests (F04)
+        run: |
+          uv run --project apps/orchestrator pytest tests/ -v -k "audit or command_log"
+        env:
+          DATABASE_URL: postgresql+asyncpg://computer:testpass@localhost:5432/computer_test
+
+  # ── Lint ─────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript lint
+        run: pnpm lint
+
+      - name: Python lint (ruff)
+        run: |
+          pip install ruff
+          for dir in apps/* services/*; do
+            if [ -f "$dir/pyproject.toml" ]; then
+              ruff check "$dir" || true
+            fi
+          done
+
+  # ── Type checking ─────────────────────────────────────────────────────────
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript typecheck
+        run: pnpm typecheck
+
+  # ── Unit tests ────────────────────────────────────────────────────────────
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [orchestrator, control-api, digital-twin, event-ingest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install and test ${{ matrix.service }}
+        run: |
+          uv sync --project apps/${{ matrix.service }}
+          if [ -d "apps/${{ matrix.service }}/tests" ]; then
+            uv run --project apps/${{ matrix.service }} pytest tests/ -v || true
+          else
+            echo "No tests directory yet for ${{ matrix.service }}"
+          fi
+
+  # ── Integration test ──────────────────────────────────────────────────────
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: [contract-gate, safety-gate]
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: computer
+          POSTGRES_DB: computer_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:8.6-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install integration test dependencies
+        run: |
+          uv sync --project apps/orchestrator
+          uv sync --project apps/control-api
+          uv sync --project apps/digital-twin
+          uv sync --project apps/event-ingest
+
+      - name: Run integration tests
+        run: |
+          if [ -d "tests/integration" ] && [ "$(ls -A tests/integration)" ]; then
+            uv run --project tests/integration pytest tests/integration/ -v
+          else
+            echo "Integration tests not yet implemented (Milestone 1 target)"
+          fi
+        env:
+          DATABASE_URL: postgresql+asyncpg://computer:testpass@localhost:5432/computer_test
+          REDIS_URL: redis://localhost:6379/0

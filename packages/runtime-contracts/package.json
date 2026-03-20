@@ -1,0 +1,17 @@
+{
+  "name": "@computer/runtime-contracts",
+  "version": "0.1.0",
+  "description": "Shared CRK execution loop types — ExecutionContext, InputEnvelope, ResponseEnvelope, and all cross-plane contracts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  },
+  "files": [
+    "src",
+    "models.py"
+  ]
+}

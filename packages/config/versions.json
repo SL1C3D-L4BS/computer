@@ -1,0 +1,213 @@
+{
+  "_comment": "Machine-readable version matrix for Computer. This is the single source of truth for all version pins. Consumed by bootstrap.sh and CI. Do not update versions without following the compatibility policy (docs/standards/compatibility-policy.md).",
+  "_last_updated": "2026-03-19",
+  "_updated_by": "initial",
+
+  "runtimes": {
+    "node": {
+      "version": "24.0.0",
+      "lts_name": "Krypton",
+      "min_version": "24.0.0",
+      "lane": "web",
+      "notes": "LTS line; do not use Node 25 current"
+    },
+    "python": {
+      "version": "3.14.3",
+      "min_version": "3.14.0",
+      "lane": "control",
+      "notes": "HA 2026.3 supports 3.14; FastAPI 0.135.x requires it"
+    }
+  },
+
+  "package_managers": {
+    "pnpm": {
+      "version": "10.32.1",
+      "min_version": "10.0.0",
+      "lane": "web",
+      "notes": "Monorepo workspace manager for TypeScript"
+    },
+    "uv": {
+      "version": "0.10.11",
+      "min_version": "0.10.0",
+      "lane": "control",
+      "notes": "Python workspace and lock file manager"
+    }
+  },
+
+  "build_tools": {
+    "turborepo": {
+      "version": "2.8.19",
+      "lane": "web",
+      "notes": "Repo-local pin; not global install"
+    }
+  },
+
+  "languages": {
+    "typescript": {
+      "version": "5.9.3",
+      "lane": "web",
+      "notes": "Used in ops-web, family-web, SDKs, contract generation"
+    }
+  },
+
+  "frontend": {
+    "nextjs": {
+      "version": "16.2.0",
+      "lane": "web",
+      "notes": "Used in apps/ops-web and apps/family-web"
+    },
+    "react": {
+      "version": "19.2.4",
+      "min_version": "19.2.1",
+      "lane": "web",
+      "notes": "NEVER use 19.2.0 — critical RSC fix landed in 19.2.1; pin 19.2.4 or later"
+    },
+    "tailwindcss": {
+      "version": "4.2.2",
+      "lane": "web",
+      "notes": "v4 current line"
+    }
+  },
+
+  "backend": {
+    "fastapi": {
+      "version": "0.135.1",
+      "lane": "control",
+      "notes": "Orchestrator, control-api, adapters, model-router"
+    },
+    "pydantic": {
+      "version": "2.12.5",
+      "lane": "control",
+      "notes": "Python-side schema discipline and validation"
+    }
+  },
+
+  "databases": {
+    "postgresql": {
+      "version": "18.3",
+      "lane": "control",
+      "notes": "Jobs, assets, audit; no beta or RC in production"
+    },
+    "redis": {
+      "version": "8.6.0",
+      "lane": "control",
+      "notes": "Ephemeral workflow state only; not truth store"
+    }
+  },
+
+  "messaging": {
+    "mosquitto": {
+      "version": "2.1.2",
+      "lane": "control",
+      "notes": "Eclipse Mosquitto MQTT broker; MQTT v5 support"
+    }
+  },
+
+  "integrations": {
+    "home_assistant": {
+      "version": "2026.3",
+      "lane": "control",
+      "notes": "Integration and UI plane only; not system of record"
+    },
+    "frigate": {
+      "version": "0.17.0",
+      "lane": "control",
+      "notes": "Dedicated host; OpenVINO/TensorRT backends"
+    }
+  },
+
+  "model_runtimes": {
+    "ollama": {
+      "version": "0.18.2",
+      "lane": "control",
+      "notes": "Primary model runtime; tool calling; Phase E"
+    },
+    "vllm": {
+      "version": "0.17.1",
+      "lane": "control",
+      "notes": "Scale-up model runtime; structured outputs; Phase E+"
+    }
+  },
+
+  "robotics": {
+    "ros2": {
+      "distro": "kilted",
+      "full_name": "ROS 2 Kilted Kaiju",
+      "lane": "robotics",
+      "notes": "LTS distro; Nav2 must match this distro"
+    },
+    "nav2": {
+      "version": "distro-matched",
+      "lane": "robotics",
+      "notes": "Must match ROS 2 kilted distro; do not use mismatched versions"
+    },
+    "px4": {
+      "version": "1.16.0",
+      "min_version": "1.16.0",
+      "max_version": "1.16.99",
+      "lane": "robotics",
+      "notes": "1.16 stable; do NOT upgrade to 1.17 until it exits alpha"
+    },
+    "gazebo": {
+      "version": "ros-compatible",
+      "lane": "robotics",
+      "notes": "Pin to ROS/Gazebo official compatibility matrix"
+    },
+    "micro_xrce_dds": {
+      "client_version": "2.x",
+      "agent_version": "3.x",
+      "lane": "robotics",
+      "notes": "Known v2 client vs v3 agent incompatibility; test explicitly on upgrade"
+    }
+  },
+
+  "observability": {
+    "prometheus": {
+      "version": "3.10.0",
+      "lane": "control",
+      "notes": "Consider 3.5 LTS if long freeze desired"
+    },
+    "grafana": {
+      "version": "12.4.0",
+      "lane": "control",
+      "notes": "Current line"
+    },
+    "loki": {
+      "version": "3.6.7",
+      "lane": "control",
+      "notes": "Optional log aggregation"
+    }
+  },
+
+  "infrastructure": {
+    "docker_compose": {
+      "version": "2",
+      "notes": "v2 compose plugin; avoid v1 standalone; pin plugin version in CI"
+    },
+    "git": {
+      "version": "2.53.0",
+      "notes": "Baseline VCS"
+    }
+  },
+
+  "security_tools": {
+    "trufflehog": {
+      "version": "latest",
+      "notes": "Secret scanning in CI"
+    },
+    "pip_audit": {
+      "version": "latest",
+      "notes": "Python dependency vulnerability scanning"
+    },
+    "semgrep": {
+      "version": "latest",
+      "notes": "SAST rules for auth boundary tests"
+    }
+  },
+
+  "not_in_v1": {
+    "nats": "Stay on MQTT + Postgres until concrete durability/topology need",
+    "kubernetes": "Optional for later; Docker Compose for local dev and early production",
+    "crew_ai": "Optional at advisory layer only; not the control plane"
+  }
+}
